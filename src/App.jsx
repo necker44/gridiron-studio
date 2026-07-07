@@ -275,14 +275,16 @@ function RouteLayer({r,lineStyle,endCap,highlight}) {
   const cap=r.endCap||endCap||'arrow'
   const style=r.lineStyle||lineStyle||'solid'
   const dash=style==='dashed'?'8,5':style==='dotted'?'3,4':'none'
-  const d=style==='zigzag'?zigzag(r.pts):catmullRom(r.pts)
+  const last=r.pts[r.pts.length-1]
   const ah=arrowHead(r.pts)
   const tc=tCap(r.pts)
-  const last=r.pts[r.pts.length-1]
+  // sharp=true means waypoint route — use polyline for crisp straight segments
+  const pathEl = r.sharp
+    ? <polyline points={r.pts.map(p=>`${p.x},${p.y}`).join(' ')} fill="none" stroke={color} strokeWidth={highlight?3:2} strokeDasharray={dash} opacity={highlight?1:0.92} strokeLinecap="round" strokeLinejoin="miter"/>
+    : <path d={style==='zigzag'?zigzag(r.pts):catmullRom(r.pts)} fill="none" stroke={color} strokeWidth={highlight?3:2} strokeDasharray={dash} opacity={highlight?1:0.92} strokeLinecap="round" strokeLinejoin="round"/>
   return (
     <g>
-      <path d={d} fill="none" stroke={color} strokeWidth={highlight?3:2}
-        strokeDasharray={dash} opacity={0.92} strokeLinecap="round" strokeLinejoin="round"/>
+      {pathEl}
       {cap==='arrow'&&ah&&<path d={ah} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round"/>}
       {cap==='T'&&tc&&<path d={tc} fill="none" stroke={color} strokeWidth={3} strokeLinecap="round"/>}
       {cap==='dot'&&<circle cx={last.x} cy={last.y} r={4} fill={color}/>}
@@ -556,7 +558,7 @@ export default function App() {
         setRouteHistory(h=>[...h.slice(-19),{routes:{...routes}}])
         setRoutes(prev=>({...prev,[target.id]:{
           pts:[...pts],
-          color:'#FFE033', lineStyle, endCap, blockType:null,
+          color:'#FFE033', lineStyle, endCap, blockType:null, sharp:true,
         }}))
       }
     }
