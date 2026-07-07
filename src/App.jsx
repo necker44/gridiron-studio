@@ -169,22 +169,16 @@ function zigzag(pts) {
   return d
 }
 function lerp(a,b,t){return a+(b-a)*t}
-// Reads the SVG's actual current viewBox from the DOM element itself
-// so coordinates are always correct regardless of React render timing
+// Uses the SVG's own transformation matrix — correctly handles
+// any viewBox, zoom, pan, letterboxing, or CSS transform.
 function getSVGPt(ref, e) {
   const svg = ref.current
   if (!svg) return { x: 0, y: 0 }
-  const rect = svg.getBoundingClientRect()
-  const cx = e.touches ? e.touches[0].clientX : e.clientX
-  const cy = e.touches ? e.touches[0].clientY : e.clientY
-  const relX = (cx - rect.left) / rect.width
-  const relY = (cy - rect.top)  / rect.height
-  // Read viewBox directly from DOM — always current, never stale
-  const vb = svg.viewBox.baseVal
-  return {
-    x: vb.x + relX * vb.width,
-    y: vb.y + relY * vb.height,
-  }
+  const pt = svg.createSVGPoint()
+  pt.x = e.touches ? e.touches[0].clientX : e.clientX
+  pt.y = e.touches ? e.touches[0].clientY : e.clientY
+  const svgP = pt.matrixTransform(svg.getScreenCTM().inverse())
+  return { x: svgP.x, y: svgP.y }
 }
 function blockColor(id){return BLOCK_TYPES.find(b=>b.id===id)?.color||'#4ADE80'}
 function blockCap(id){return BLOCK_TYPES.find(b=>b.id===id)?.endCap||'T'}
