@@ -491,84 +491,90 @@ export default function App() {
   }
 
   // ── Pointer helpers ──────────────────────────────────────────────────────
+  // ── Find closest player to a point ────────────────────────────────────────
+  const closestPlayer = (pt, pList) => {
+    let best = null, bestDist = Infinity
+    pList.forEach(p => {
+      const d = Math.hypot(p.cx - pt.x, p.cy - pt.y)
+      if (d < bestDist) { bestDist = d; best = p }
+    })
+    return best
+  }
+
+  // ── Freehand route drawing (field-first, no player click needed) ──────────
+  // drawingFor tracks the player id routes are being drawn for.
+  // '__field__' means started on empty field — snaps to closest player on commit.
   const makeHandlers=(ref,pList,setPList,rMap,setRMap,rHist,setRHist,dFor,setDFor,cPts,setCPts,drag,setDrag,sel,setSel,curTool,curBT)=>({
     onPlayerDown:(e,id)=>{
-      if(animating)return
+      if(animating) return
       e.stopPropagation(); setSel(id)
-      const pt=getSVGPt(ref,e)
       if(curTool==='move'){
+        const pt=getSVGPt(ref,e)
         const p=pList.find(p=>p.id===id)
         setDrag({id,ox:pt.x-p.cx,oy:pt.y-p.cy})
-      } else {
-        // Freehand: start on pointer down
-        setDFor(id); setCPts([{x:pt.x,y:pt.y}])
       }
+      // route/block: SVG onPointerDown handles it — no action here
     },
     onMove:(e)=>{
-      if(animating)return
+      if(animating) return
       const pt=getSVGPt(ref,e)
       if(drag) setPList(prev=>prev.map(p=>p.id===drag.id?{...p,cx:pt.x-drag.ox,cy:pt.y-drag.oy}:p))
       if(dFor) setCPts(prev=>{
         const l=prev[prev.length-1]
-        return(!l||Math.hypot(pt.x-l.x,pt.y-l.y)>5)?[...prev,{x:pt.x,y:pt.y}]:prev
+        return(!l||Math.hypot(pt.x-l.x,pt.y-l.y)>4)?[...prev,pt]:prev
       })
     },
-    onUp:()=>{
+    onUp:(startPt)=>{
       if(drag){setDrag(null);return}
       if(dFor&&cPts.length>1){
         setRHist(h=>[...h.slice(-19),{routes:{...rMap}}])
         const isBlock=curTool==='block'
-        setRMap(prev=>({...prev,[dFor]:{
-          pts:cPts,
-          color:isBlock?blockColor(curBT):'#FFE033',
-          lineStyle:isBlock?'solid':lineStyle,
-          endCap:isBlock?blockCap(curBT):endCap,
-          blockType:isBlock?curBT:null,
-        }}))
+        const targetId = dFor==='__field__'
+          ? closestPlayer(startPt||cPts[0], pList)?.id
+          : dFor
+        if(targetId){
+          setRMap(prev=>({...prev,[targetId]:{
+            pts:cPts,
+            color:isBlock?blockColor(curBT):'#FFE033',
+            lineStyle:isBlock?'solid':lineStyle,
+            endCap:isBlock?blockCap(curBT):endCap,
+            blockType:isBlock?curBT:null,
+          }}))
+        }
         setDFor(null); setCPts([])
       } else if(dFor){setDFor(null);setCPts([])}
     },
     onSvgClick:(e)=>{ if(e.target===ref.current) setSel(null) },
   })
 
-  // ── Waypoint system — fully separate from makeHandlers ───────────────────
-  // Uses wpRef so handlers never have stale closure issues
+  // ── Multi-segment waypoint route (field-first) ────────────────────────────
   const wpFinish = useCallback(()=>{
-    const {pts,playerId}=wpRef.current
-    if(pts.length>=2&&playerId){
-      setRouteHistory(h=>[...h.slice(-19),{routes:{...routes}}])
-      setRoutes(prev=>({...prev,[playerId]:{
-        pts:[...pts],
-        color:'#FFE033', lineStyle, endCap, blockType:null,
-      }}))
+    const {pts}=wpRef.current
+    if(pts.length>=2){
+      const target=closestPlayer(pts[0], players)
+      if(target){
+        setRouteHistory(h=>[...h.slice(-19),{routes:{...routes}}])
+        setRoutes(prev=>({...prev,[target.id]:{
+          pts:[...pts],
+          color:'#FFE033', lineStyle, endCap, blockType:null,
+        }}))
+      }
     }
     wpRef.current={active:false,pts:[],playerId:null}
-    setWaypointActive(false); setWaypointPts([]); setPreviewPt(null); setWaypointPlayerId(null)
-    setDrawingFor(null)
-  },[routes,lineStyle,endCap])
+    setWaypointActive(false); setWaypointPts([]); setPreviewPt(null)
+    setWaypointPlayerId(null); setDrawingFor(null)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[players,routes,lineStyle,endCap])
 
   const wpCancel = useCallback(()=>{
     wpRef.current={active:false,pts:[],playerId:null}
-    setWaypointActive(false); setWaypointPts([]); setPreviewPt(null); setWaypointPlayerId(null)
-    setDrawingFor(null)
+    setWaypointActive(false); setWaypointPts([]); setPreviewPt(null)
+    setWaypointPlayerId(null); setDrawingFor(null)
   },[])
 
-  const wpStartOnPlayer = useCallback((e,id)=>{
-    e.stopPropagation()
-    if(animating)return
-    setSelected(id)
-    const pt=getSVGPt(svgRef,e)
-    wpRef.current={active:true,pts:[{x:pt.x,y:pt.y}],playerId:id}
-    setWaypointActive(true)
-    setWaypointPts([{x:pt.x,y:pt.y}])
-    setWaypointPlayerId(id)
-    setPreviewPt({x:pt.x,y:pt.y})
-    setDrawingFor(id)
-  },[animating,viewBox])
-  // Keyboard handler for waypoint mode
   useEffect(()=>{
     const onKey=(e)=>{
-      if(!wpRef.current.active)return
+      if(!wpRef.current.active) return
       if(e.key==='Escape') wpCancel()
       if(e.key==='Enter')  wpFinish()
     }
@@ -773,51 +779,66 @@ export default function App() {
             </div>
             <svg ref={svgRef} viewBox={viewBox}
               style={{height:'calc(100vh - 60px)',width:'100%',display:'block',borderRadius:6,
-                cursor:panning?'grabbing':waypointActive?'crosshair':tool==='move'?(zoom>1?'grab':'default'):'crosshair',
+                cursor:panning?'grabbing':tool==='move'?(zoom>1?'grab':'default'):'crosshair',
                 userSelect:'none',touchAction:'none'}}
               onPointerMove={(e)=>{
-                if(waypointActive){
-                  setPreviewPt(getSVGPt(svgRef,e))
-                  return
-                }
+                // Always update waypoint preview
+                if(waypointActive) setPreviewPt(getSVGPt(svgRef,e))
+                // Pan
                 if(panning&&panStart){
-                  // Pan by moving in SVG units
                   const svg=svgRef.current,rect=svg.getBoundingClientRect()
-                  const scaleX=vbW/rect.width, scaleY=vbH/rect.height
-                  const dx=(e.clientX-panStart.x)*scaleX
-                  const dy=(e.clientY-panStart.y)*scaleY
-                  setPanX(p=>p-dx); setPanY(p=>p-dy)
+                  const scaleX=vbW/rect.width,scaleY=vbH/rect.height
+                  setPanX(p=>p-(e.clientX-panStart.x)*scaleX)
+                  setPanY(p=>p-(e.clientY-panStart.y)*scaleY)
                   setPanStart({x:e.clientX,y:e.clientY})
                 } else {
                   mH.onMove(e)
                 }
               }}
               onPointerDown={(e)=>{
-                if(waypointActive) return
-                // Pan with middle mouse OR left mouse in move tool when zoomed
-                if(e.button===1||(e.button===0&&zoom>1&&tool==='move')){
-                  e.preventDefault()
-                  setPanning(true); setPanStart({x:e.clientX,y:e.clientY})
+                if(e.button!==0) return
+                const pt=getSVGPt(svgRef,e)
+                // Pan: move tool + zoomed
+                if(zoom>1&&tool==='move'){
+                  e.preventDefault(); setPanning(true); setPanStart({x:e.clientX,y:e.clientY}); return
+                }
+                // Waypoint: first click starts the route from exactly here
+                if(straightMode&&(tool==='route'||tool==='block')){
+                  if(!waypointActive){
+                    wpRef.current={active:true,pts:[pt],playerId:'__field__'}
+                    setWaypointActive(true); setWaypointPts([pt]); setPreviewPt(pt)
+                  }
+                  return
+                }
+                // Freehand: start drawing from exactly here
+                if(tool==='route'||tool==='block'){
+                  setDrawingFor('__field__'); setCurrentPts([pt])
                 }
               }}
               onPointerUp={(e)=>{
                 if(panning){ setPanning(false); setPanStart(null); return }
-                if(!waypointActive) mH.onUp(e)
+                if(!waypointActive){
+                  const startPt=currentPts[0]
+                  mH.onUp(startPt)
+                }
               }}
               onPointerLeave={(e)=>{
                 if(panning){ setPanning(false); setPanStart(null); return }
-                if(!waypointActive&&!straightMode) mH.onUp(e)
+                if(!waypointActive&&!straightMode){
+                  const startPt=currentPts[0]
+                  mH.onUp(startPt)
+                }
               }}
               onDoubleClick={(e)=>{ if(waypointActive){ e.preventDefault(); wpFinish() } }}
               onClick={(e)=>{
                 if(panning) return
                 if(waypointActive){
                   const pt=getSVGPt(svgRef,e)
-                  wpRef.current.pts=[...wpRef.current.pts,{x:pt.x,y:pt.y}]
+                  wpRef.current.pts=[...wpRef.current.pts,pt]
                   setWaypointPts([...wpRef.current.pts])
                   return
                 }
-                mH.onSvgClick(e)
+                if(!drawingFor) mH.onSvgClick(e)
               }}>
               <FootballField showGaps={showGaps}/>
               {Object.entries(routes).map(([id,r])=><RouteLayer key={id} r={r} lineStyle={lineStyle} endCap={endCap}/>)}
@@ -827,17 +848,16 @@ export default function App() {
               {waypointActive&&waypointPts.length>0&&(
                 <g>
                   {waypointPts.length>1&&<polyline points={waypointPts.map(p=>`${p.x},${p.y}`).join(' ')} fill="none" stroke="#FFE033" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" opacity={0.95}/>}
-                  {previewPt&&waypointPts.length>=1&&<line x1={waypointPts[waypointPts.length-1].x} y1={waypointPts[waypointPts.length-1].y} x2={previewPt.x} y2={previewPt.y} stroke="rgba(255,255,255,0.45)" strokeWidth={1.5} strokeDasharray="6,4"/>}
+                  {previewPt&&<line x1={waypointPts[waypointPts.length-1].x} y1={waypointPts[waypointPts.length-1].y} x2={previewPt.x} y2={previewPt.y} stroke="rgba(255,255,255,0.45)" strokeWidth={1.5} strokeDasharray="6,4"/>}
                   {waypointPts.map((p,i)=>(
                     <circle key={i} cx={p.x} cy={p.y} r={i===0?6:4}
                       fill={i===0?'#FFE033':'rgba(255,255,255,0.9)'} stroke="#060e07" strokeWidth={1.5}/>
                   ))}
                   {waypointPts.length>=2&&previewPt&&(
-                    <text x={previewPt.x+12} y={previewPt.y-10} fill="rgba(255,255,255,0.45)" fontSize={9} fontFamily="monospace">double-click or Enter to finish · Esc to cancel</text>
+                    <text x={previewPt.x+12} y={previewPt.y-10} fill="rgba(255,255,255,0.45)" fontSize={9} fontFamily="monospace">dbl-click or Enter to finish · Esc cancel</text>
                   )}
                 </g>
               )}
-              {/* Players — in waypoint mode, clicking a player starts/is ignored */}
               {players.map(p=>(
                 <PlayerIcon key={p.id} p={p}
                   selected={selected===p.id}
@@ -845,13 +865,7 @@ export default function App() {
                   drawingActive={drawingFor===p.id}
                   cx={animating&&animSnap?getAnimPos(p)?.cx:undefined}
                   cy={animating&&animSnap?getAnimPos(p)?.cy:undefined}
-                  onPointerDown={(e)=>{
-                    if(straightMode&&!waypointActive&&(tool==='route'||tool==='block')){
-                      wpStartOnPlayer(e,p.id)
-                    } else if(!waypointActive){
-                      mH.onPlayerDown(e,p.id)
-                    }
-                  }}/>
+                  onPointerDown={(e)=>mH.onPlayerDown(e,p.id)}/>
               ))}
               {!animating&&<ellipse cx={FIELD_W/2} cy={LOS_Y+8} rx={5} ry={8} fill="#8B4513" stroke="#FFE033" strokeWidth={1} opacity={0.9}/>}
             </svg>
