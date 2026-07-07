@@ -273,18 +273,33 @@ function RouteLayer({r,lineStyle,endCap,highlight}) {
   if (!r||!r.pts||r.pts.length<2) return null
   const color=highlight?'#fff':(r.color||'#FFE033')
   const cap=r.endCap||endCap||'arrow'
-  const style=r.lineStyle||lineStyle||'solid'
-  const dash=style==='dashed'?'8,5':style==='dotted'?'3,4':'none'
   const last=r.pts[r.pts.length-1]
   const ah=arrowHead(r.pts)
   const tc=tCap(r.pts)
-  // sharp=true means waypoint route — use polyline for crisp straight segments
-  const pathEl = r.sharp
-    ? <polyline points={r.pts.map(p=>`${p.x},${p.y}`).join(' ')} fill="none" stroke={color} strokeWidth={highlight?3:2} strokeDasharray={dash} opacity={highlight?1:0.92} strokeLinecap="round" strokeLinejoin="miter"/>
-    : <path d={style==='zigzag'?zigzag(r.pts):catmullRom(r.pts)} fill="none" stroke={color} strokeWidth={highlight?3:2} strokeDasharray={dash} opacity={highlight?1:0.92} strokeLinecap="round" strokeLinejoin="round"/>
+
+  // Sharp/waypoint routes: always straight polyline, no smoothing ever
+  if (r.sharp) {
+    const ptStr = r.pts.map(p=>`${p.x},${p.y}`).join(' ')
+    return (
+      <g>
+        <polyline points={ptStr} fill="none" stroke={color}
+          strokeWidth={highlight?3:2.5} strokeLinejoin="miter" strokeLinecap="square"
+          opacity={highlight?1:0.95}/>
+        {cap==='arrow'&&ah&&<path d={ah} fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round"/>}
+        {cap==='T'&&tc&&<path d={tc} fill="none" stroke={color} strokeWidth={3} strokeLinecap="round"/>}
+        {cap==='dot'&&<circle cx={last.x} cy={last.y} r={4} fill={color}/>}
+      </g>
+    )
+  }
+
+  // Freehand/smooth routes
+  const style=r.lineStyle||lineStyle||'solid'
+  const dash=style==='dashed'?'8,5':style==='dotted'?'3,4':'none'
+  const d=style==='zigzag'?zigzag(r.pts):catmullRom(r.pts)
   return (
     <g>
-      {pathEl}
+      <path d={d} fill="none" stroke={color} strokeWidth={highlight?3:2}
+        strokeDasharray={dash} opacity={0.92} strokeLinecap="round" strokeLinejoin="round"/>
       {cap==='arrow'&&ah&&<path d={ah} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round"/>}
       {cap==='T'&&tc&&<path d={tc} fill="none" stroke={color} strokeWidth={3} strokeLinecap="round"/>}
       {cap==='dot'&&<circle cx={last.x} cy={last.y} r={4} fill={color}/>}
