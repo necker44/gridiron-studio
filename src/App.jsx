@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useSharedPlays } from './hooks/useSharedPlays'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -323,7 +323,10 @@ export default function App() {
   const [currentPts,  setCurrentPts]  = useState([])
   const [lineStyle,   setLineStyle]   = useState('solid')
   const [endCap,      setEndCap]      = useState('arrow')
-  const [straightMode,setStraightMode]= useState(false)  // auto-straighten toggle
+  const [straightMode,setStraightMode]= useState(false)  // freehand vs waypoint click mode
+  const [waypointActive,setWaypointActive]= useState(false) // currently placing waypoints
+  const [waypointPts,setWaypointPts]  = useState([])     // committed waypoint clicks
+  const [previewPt,setPreviewPt]      = useState(null)   // live cursor position for preview line
   const [blockType,   setBlockType]   = useState('drive')
   const [dragging,    setDragging]    = useState(null)
   const [selected,    setSelected]    = useState(null)
@@ -356,6 +359,33 @@ export default function App() {
   const [boardWidth,  setBoardWidth]  = useState(3)
   const [boardDrawing,setBoardDrawing]= useState(false)
 
+  // Zoom & pan (designer + lineman studio share the same controls)
+  const [zoom,    setZoom]    = useState(1)      // 1 = full view, max 4
+  const [panX,    setPanX]    = useState(0)      // offset in SVG units
+  const [panY,    setPanY]    = useState(0)
+  const [panning, setPanning] = useState(false)
+  const [panStart,setPanStart]= useState(null)
+  const lastPinchDist = useRef(null)
+
+  // Compute dynamic viewBox from zoom + pan
+  const vbW = useMemo(()=>FIELD_W/zoom,[zoom])
+  const vbH = useMemo(()=>FIELD_H/zoom,[zoom])
+  // Clamp pan so we never scroll outside the field
+  const clampedPanX = useMemo(()=>Math.min(Math.max(panX,0),FIELD_W-vbW),[panX,vbW])
+  const clampedPanY = useMemo(()=>Math.min(Math.max(panY,0),FIELD_H-vbH),[panY,vbH])
+  const viewBox     = useMemo(()=>`${clampedPanX} ${clampedPanY} ${vbW} ${vbH}`,[clampedPanX,clampedPanY,vbW,vbH])
+
+  const zoomIn  = ()=>{ setZoom(z=>Math.min(z+0.5,4)); }
+  const zoomOut = ()=>{ setZoom(z=>{ const nz=Math.max(z-0.5,1); if(nz===1){setPanX(0);setPanY(0);} return nz; }); }
+  const zoomReset=()=>{ setZoom(1); setPanX(0); setPanY(0); }
+
+  // Wheel zoom
+  const onWheelZoom = useCallback((e)=>{
+    e.preventDefault()
+    const delta = e.deltaY < 0 ? 0.25 : -0.25
+    setZoom(z=>{ const nz=Math.min(Math.max(z+delta,1),4); if(nz===1){setPanX(0);setPanY(0);} return nz; })
+  },[])
+
   const svgRef   = useRef(null)
   const lsSvgRef = useRef(null)
   const boardRef = useRef(null)
@@ -364,6 +394,13 @@ export default function App() {
   const {plays,syncStatus,lastSync,storageOk,load,addPlay,deletePlay} = useSharedPlays()
 
   useEffect(()=>{if(authorName)localStorage.setItem('gs_author',authorName)},[authorName])
+
+  // Attach non-passive wheel listener for zoom
+  useEffect(()=>{
+    const el=svgRef.current; if(!el)return
+    el.addEventListener('wheel',onWheelZoom,{passive:false})
+    return()=>el.removeEventListener('wheel',onWheelZoom)
+  },[onWheelZoom])
 
   // ── Mode switch ──────────────────────────────────────────────────────────
   const switchMode=(m)=>{
@@ -411,15 +448,43 @@ export default function App() {
   }
 
   // ── Pointer helpers ──────────────────────────────────────────────────────
-  const makeHandlers=(ref,pList,setPList,rMap,setRMap,rHist,setRHist,dFor,setDFor,cPts,setCPts,drag,setDrag,sel,setSel,curTool,curBT,straight)=>({
+  // Track pointer-down position to distinguish drag vs click
+  const pointerDownPos = useRef(null)
+
+  // ── Commit waypoint route ─────────────────────────────────────────────────
+  const commitWaypointRoute = useCallback((pts, dFor, isBlock, curBT, rMap, setRMap, setRHist)=>{
+    if(!dFor||pts.length<2) return
+    setRHist(h=>[...h.slice(-19),{routes:{...rMap}}])
+    setRMap(prev=>({...prev,[dFor]:{
+      pts,
+      color:isBlock?blockColor(curBT):'#FFE033',
+      lineStyle:isBlock?'solid':lineStyle,
+      endCap:isBlock?blockCap(curBT):endCap,
+      blockType:isBlock?curBT:null,
+    }}))
+  },[lineStyle,endCap])
+
+  const makeHandlers=(ref,pList,setPList,rMap,setRMap,rHist,setRHist,dFor,setDFor,cPts,setCPts,drag,setDrag,sel,setSel,curTool,curBT,straight)=>{
+    const isWaypointMode = straight  // "straight" param now means "waypoint/multi-segment mode"
+    return {
     onPlayerDown:(e,id)=>{
       if(animating)return
       e.stopPropagation(); setSel(id)
       const pt=getSVGPt(ref,e)
+      pointerDownPos.current={x:pt.x,y:pt.y}
       if(curTool==='move'){
         const p=pList.find(p=>p.id===id)
         setDrag({id,ox:pt.x-p.cx,oy:pt.y-p.cy})
+      } else if(isWaypointMode){
+        // In waypoint mode: clicking a player starts the route
+        if(!waypointActive){
+          setDrawingFor && setDFor(id)
+          setWaypointActive(true)
+          setWaypointPts([{x:pt.x,y:pt.y}])
+          setPreviewPt({x:pt.x,y:pt.y})
+        }
       } else {
+        // Freehand mode: start drawing on pointer down
         setDFor(id); setCPts([{x:pt.x,y:pt.y}])
       }
     },
@@ -427,31 +492,74 @@ export default function App() {
       if(animating)return
       const pt=getSVGPt(ref,e)
       if(drag) setPList(prev=>prev.map(p=>p.id===drag.id?{...p,cx:pt.x-drag.ox,cy:pt.y-drag.oy}:p))
-      if(dFor) setCPts(prev=>{
-        const l=prev[prev.length-1]
-        return(!l||Math.hypot(pt.x-l.x,pt.y-l.y)>5)?[...prev,{x:pt.x,y:pt.y}]:prev
-      })
+      if(isWaypointMode){
+        // Update live preview line to cursor
+        if(waypointActive) setPreviewPt({x:pt.x,y:pt.y})
+      } else {
+        if(dFor) setCPts(prev=>{
+          const l=prev[prev.length-1]
+          return(!l||Math.hypot(pt.x-l.x,pt.y-l.y)>5)?[...prev,{x:pt.x,y:pt.y}]:prev
+        })
+      }
     },
     onUp:()=>{
-      if(drag)setDrag(null)
-      if(dFor&&cPts.length>1){
-        const isBlock=curTool==='block'
-        // straighten if toggle is on and it's a route (not block)
-        const finalPts=(!isBlock&&straight)?straighten(cPts):cPts
-        // push current state onto undo stack
+      if(drag){setDrag(null);return}
+      if(!isWaypointMode && dFor&&cPts.length>1){
+        // Freehand commit
         setRHist(h=>[...h.slice(-19),{routes:{...rMap}}])
+        const isBlock=curTool==='block'
         setRMap(prev=>({...prev,[dFor]:{
-          pts:finalPts,
+          pts:cPts,
           color:isBlock?blockColor(curBT):'#FFE033',
           lineStyle:isBlock?'solid':lineStyle,
           endCap:isBlock?blockCap(curBT):endCap,
           blockType:isBlock?curBT:null,
         }}))
         setDFor(null); setCPts([])
-      } else if(dFor){setDFor(null);setCPts([])}
+      } else if(!isWaypointMode && dFor){
+        setDFor(null); setCPts([])
+      }
     },
-    onSvgClick:(e)=>{if(e.target===ref.current)setSel(null)},
-  })
+    // Field click — used for waypoint placement
+    onSvgClick:(e)=>{
+      if(isWaypointMode && waypointActive && dFor){
+        const pt=getSVGPt(ref,e)
+        // Check if this is a double-click (finish route)
+        // We detect by checking if click is very close to last waypoint
+        const last=waypointPts[waypointPts.length-1]
+        const isNearLast = last && Math.hypot(pt.x-last.x,pt.y-last.y)<15
+        if(isNearLast){
+          // Double-tap/double-click on same spot = finish
+          if(waypointPts.length>=2){
+            commitWaypointRoute(waypointPts,dFor,curTool==='block',curBT,rMap,setRMap,setRHist)
+          }
+          setWaypointActive(false); setWaypointPts([]); setPreviewPt(null); setDFor(null)
+        } else {
+          // Add waypoint
+          setWaypointPts(prev=>[...prev,{x:pt.x,y:pt.y}])
+        }
+        return
+      }
+      if(!isWaypointMode && e.target===ref.current) setSel(null)
+      if(isWaypointMode && !waypointActive && e.target===ref.current) setSel(null)
+    },
+  }}
+
+  // Cancel waypoint route with Escape
+  useEffect(()=>{
+    const onKey=(e)=>{
+      if(e.key==='Escape'&&waypointActive){
+        setWaypointActive(false); setWaypointPts([]); setPreviewPt(null)
+        setDrawingFor(null)
+      }
+      if(e.key==='Enter'&&waypointActive&&waypointPts.length>=2){
+        commitWaypointRoute(waypointPts,drawingFor,tool==='block',blockType,routes,setRoutes,setRouteHistory)
+        setWaypointActive(false); setWaypointPts([]); setPreviewPt(null); setDrawingFor(null)
+      }
+    }
+    window.addEventListener('keydown',onKey)
+    return()=>window.removeEventListener('keydown',onKey)
+  },[waypointActive,waypointPts,drawingFor,tool,blockType,routes,commitWaypointRoute])
 
   const mH=makeHandlers(svgRef,players,setPlayers,routes,setRoutes,routeHistory,setRouteHistory,drawingFor,setDrawingFor,currentPts,setCurrentPts,dragging,setDragging,selected,setSelected,tool,blockType,straightMode)
   const lH=makeHandlers(lsSvgRef,lsPlayers,setLsPlayers,lsRoutes,setLsRoutes,lsRouteHist,setLsRouteHist,lsDrawFor,setLsDrawFor,lsCurPts,setLsCurPts,lsDragging,setLsDragging,lsSelected,setLsSelected,lsTool,lsBlockType,false)
@@ -557,7 +665,8 @@ export default function App() {
           <div style={{background:'#0a1a0c',border:'1px solid #2d5a30',borderRadius:8,padding:22,maxWidth:440,color:'#c8e6c9',fontSize:12,lineHeight:1.9}} onClick={e=>e.stopPropagation()}>
             <div style={{fontSize:14,fontWeight:'bold',color:'#FFE033',marginBottom:8}}>Gridiron Studio</div>
             <div><b style={{color:'#4ADE80'}}>Move ✋</b> — Drag any player anywhere on the field</div>
-            <div><b style={{color:'#4ADE80'}}>Route ✏️</b> — Click a player then drag to draw their route</div>
+            <div><b style={{color:'#4ADE80'}}>Freehand mode</b> — Click player then drag to draw a free route</div>
+            <div><b style={{color:'#4ADE80'}}>Multi-Segment mode</b> — Click player, then click to place each waypoint (go 5 yds, break left, slant back), double-click or Enter to finish, Esc to cancel</div>
             <div><b style={{color:'#4ADE80'}}>Block 🔲</b> — Click a lineman then drag to assign a block</div>
             <div><b style={{color:'#4ADE80'}}>Straight Lines</b> — Toggle to auto-straighten freehand routes</div>
             <div><b style={{color:'#4ADE80'}}>Undo</b> — Removes the last route drawn</div>
@@ -601,9 +710,10 @@ export default function App() {
                   ))}
                 </div>
                 {SL('LINE MODE')}
-                <button onClick={()=>setStraightMode(!straightMode)} style={{padding:'4px 6px',borderRadius:4,border:`1px solid ${straightMode?'#FFE033':'#2d5a30'}`,background:straightMode?'rgba(255,224,51,0.1)':'transparent',color:straightMode?'#FFE033':'#a7f3a7',fontFamily:'monospace',fontSize:10,cursor:'pointer',width:'100%',textAlign:'left'}}>
-                  {straightMode?'✓ Straight Lines':'~ Freehand'}
+                <button onClick={()=>{setStraightMode(!straightMode);setWaypointActive(false);setWaypointPts([]);setPreviewPt(null);setDrawingFor(null)}} style={{padding:'4px 6px',borderRadius:4,border:`1px solid ${straightMode?'#FFE033':'#2d5a30'}`,background:straightMode?'rgba(255,224,51,0.1)':'transparent',color:straightMode?'#FFE033':'#a7f3a7',fontFamily:'monospace',fontSize:10,cursor:'pointer',width:'100%',textAlign:'left'}}>
+                  {straightMode?'✓ Multi-Segment (click)':'~ Freehand (drag)'}
                 </button>
+                {straightMode&&<div style={{fontSize:9,color:'#4ade80',opacity:0.65,lineHeight:1.5,padding:'2px 0'}}>Click player → click to add points → double-click or Enter to finish · Esc cancels</div>}
               </>}
               {tool==='block'&&<>
                 {SL('BLOCK TYPE')}
@@ -637,16 +747,90 @@ export default function App() {
             </div>
           </div>
 
-          {/* Field — vertical */}
-          <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',padding:10,background:'#060e07',overflow:'auto'}}>
-            <svg ref={svgRef} viewBox={`0 0 ${FIELD_W} ${FIELD_H}`}
-              style={{height:'calc(100vh - 60px)',maxHeight:900,width:'auto',borderRadius:6,cursor:tool==='move'?(dragging?'grabbing':'default'):'crosshair',userSelect:'none',touchAction:'none',boxShadow:'0 0 28px rgba(0,0,0,0.8)'}}
-              onPointerMove={mH.onMove} onPointerUp={mH.onUp} onPointerLeave={mH.onUp} onClick={mH.onSvgClick}>
+          {/* Field — vertical with zoom */}
+          <div style={{flex:1,position:'relative',overflow:'hidden',background:'#060e07'}}>
+            {/* Zoom controls */}
+            <div style={{position:'absolute',bottom:14,right:14,zIndex:10,display:'flex',flexDirection:'column',gap:4,alignItems:'center'}}>
+              <button onClick={zoomIn} title="Zoom In" style={{width:34,height:34,borderRadius:6,border:'1px solid #2d5a30',background:'rgba(10,26,12,0.92)',color:'#FFE033',fontSize:20,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(4px)'}}>+</button>
+              <div style={{fontSize:9,color:'#4ade80',fontFamily:'monospace',textAlign:'center',background:'rgba(10,26,12,0.85)',borderRadius:4,padding:'2px 5px',border:'1px solid #1d4a20'}}>{Math.round(zoom*100)}%</div>
+              <button onClick={zoomOut} title="Zoom Out" style={{width:34,height:34,borderRadius:6,border:'1px solid #2d5a30',background:'rgba(10,26,12,0.92)',color:'#FFE033',fontSize:24,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(4px)'}}>−</button>
+              {zoom>1&&<button onClick={zoomReset} title="Reset Zoom" style={{width:34,height:20,borderRadius:4,border:'1px solid #FFE033',background:'rgba(255,224,51,0.12)',color:'#FFE033',fontSize:8,cursor:'pointer',fontFamily:'monospace',backdropFilter:'blur(4px)'}}>FIT</button>}
+            </div>
+            <svg ref={svgRef} viewBox={viewBox}
+              style={{height:'calc(100vh - 60px)',width:'100%',display:'block',borderRadius:6,
+                cursor:panning?'grabbing':tool==='move'?(dragging?'grabbing':'default'):'crosshair',
+                userSelect:'none',touchAction:'none'}}
+              onPointerMove={(e)=>{
+                // Update waypoint preview cursor position
+                if(straightMode&&waypointActive){
+                  const pt=getSVGPt(svgRef,e); setPreviewPt({x:pt.x,y:pt.y})
+                }
+                // Pan when zoomed
+                if(panning&&panStart&&zoom>1){
+                  const svg=svgRef.current,rect=svg.getBoundingClientRect()
+                  const dx=(e.clientX-panStart.x)*(vbW/rect.width)
+                  const dy=(e.clientY-panStart.y)*(vbH/rect.height)
+                  setPanX(clampedPanX-dx); setPanY(clampedPanY-dy)
+                  setPanStart({x:e.clientX,y:e.clientY})
+                } else { mH.onMove(e) }
+              }}
+              onPointerDown={(e)=>{
+                if(e.button===1||(zoom>1&&e.target===svgRef.current&&!straightMode)){
+                  e.preventDefault(); setPanning(true); setPanStart({x:e.clientX,y:e.clientY})
+                }
+              }}
+              onPointerUp={(e)=>{ setPanning(false); setPanStart(null); mH.onUp(e) }}
+              onPointerLeave={(e)=>{ setPanning(false); setPanStart(null); if(!straightMode)mH.onUp(e) }}
+              onDoubleClick={(e)=>{
+                // Double click on field in waypoint mode = finish route
+                if(straightMode&&waypointActive&&waypointPts.length>=2){
+                  const pt=getSVGPt(svgRef,e)
+                  const finalPts=[...waypointPts,{x:pt.x,y:pt.y}]
+                  commitWaypointRoute(finalPts,drawingFor,tool==='block',blockType,routes,setRoutes,setRouteHistory)
+                  setWaypointActive(false);setWaypointPts([]);setPreviewPt(null);setDrawingFor(null)
+                }
+              }}
+              onClick={(e)=>{
+                // Single click on field in waypoint mode = add waypoint
+                if(straightMode&&waypointActive){
+                  const pt=getSVGPt(svgRef,e)
+                  setWaypointPts(prev=>[...prev,{x:pt.x,y:pt.y}])
+                  return
+                }
+                mH.onSvgClick(e)
+              }}>
               <FootballField showGaps={showGaps}/>
               {Object.entries(routes).map(([id,r])=><RouteLayer key={id} r={r} lineStyle={lineStyle} endCap={endCap}/>)}
-              {drawingFor&&currentPts.length>1&&<RouteLayer r={{pts:straightMode?straighten(currentPts):currentPts,color:'#fff',lineStyle:tool==='block'?'solid':lineStyle,endCap:tool==='block'?blockCap(blockType):endCap}} lineStyle={lineStyle} endCap={endCap} highlight/>}
-              {players.map(p=>{const ap=animating&&animSnap?getAnimPos(p):null;return<PlayerIcon key={p.id} p={p} selected={selected===p.id} hasRoute={!!routes[p.id]} drawingActive={drawingFor===p.id} cx={ap?.cx} cy={ap?.cy} onPointerDown={e=>mH.onPlayerDown(e,p.id)}/>})}
-              {/* football */}
+              {/* Freehand preview */}
+              {!straightMode&&drawingFor&&currentPts.length>1&&<RouteLayer r={{pts:currentPts,color:'#fff',lineStyle:tool==='block'?'solid':lineStyle,endCap:tool==='block'?blockCap(blockType):endCap}} lineStyle={lineStyle} endCap={endCap} highlight/>}
+              {/* Waypoint mode: draw committed segments + live preview to cursor */}
+              {straightMode&&waypointActive&&waypointPts.length>0&&(
+                <g>
+                  {/* Committed segments */}
+                  {waypointPts.length>1&&<polyline points={waypointPts.map(p=>`${p.x},${p.y}`).join(' ')} fill="none" stroke="#FFE033" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" opacity={0.9}/>}
+                  {/* Live preview line from last waypoint to cursor */}
+                  {previewPt&&<line x1={waypointPts[waypointPts.length-1].x} y1={waypointPts[waypointPts.length-1].y} x2={previewPt.x} y2={previewPt.y} stroke="rgba(255,255,255,0.5)" strokeWidth={1.5} strokeDasharray="5,4"/>}
+                  {/* Waypoint dots */}
+                  {waypointPts.map((p,i)=>(
+                    <circle key={i} cx={p.x} cy={p.y} r={i===0?5:4}
+                      fill={i===0?'#FFE033':'#fff'} stroke="#060e07" strokeWidth={1.5}
+                      style={{cursor:'pointer'}}
+                      onClick={(e)=>{
+                        e.stopPropagation()
+                        // Click on first dot to close/finish
+                        if(i===0&&waypointPts.length>=2){
+                          commitWaypointRoute(waypointPts,drawingFor,tool==='block',blockType,routes,setRoutes,setRouteHistory)
+                          setWaypointActive(false);setWaypointPts([]);setPreviewPt(null);setDrawingFor(null)
+                        }
+                      }}/>
+                  ))}
+                  {/* Finish hint */}
+                  {waypointPts.length>=2&&previewPt&&(
+                    <text x={previewPt.x+10} y={previewPt.y-8} fill="rgba(255,255,255,0.5)" fontSize={9} fontFamily="monospace">dbl-click or Enter to finish · Esc to cancel</text>
+                  )}
+                </g>
+              )}
+              {players.map(p=>{const ap=animating&&animSnap?getAnimPos(p):null;return<PlayerIcon key={p.id} p={p} selected={selected===p.id} hasRoute={!!routes[p.id]} drawingActive={drawingFor===p.id||(!straightMode&&drawingFor===p.id)} cx={ap?.cx} cy={ap?.cy} onPointerDown={e=>mH.onPlayerDown(e,p.id)}/>})}
               {!animating&&<ellipse cx={FIELD_W/2} cy={LOS_Y+8} rx={5} ry={8} fill="#8B4513" stroke="#FFE033" strokeWidth={1} opacity={0.9}/>}
             </svg>
           </div>
@@ -683,11 +867,32 @@ export default function App() {
               <button onClick={()=>doSave('lineman')} disabled={syncStatus==='saving'} style={{padding:'5px 0',borderRadius:4,border:'1px solid #4ade80',background:'rgba(74,222,128,0.08)',color:'#4ade80',fontFamily:'monospace',fontSize:10,cursor:'pointer',opacity:syncStatus==='saving'?0.5:1}}>{syncStatus==='saving'?'⟳ Saving…':'💾 Save Scheme'}</button>
             </div>
           </div>
-          <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:10,gap:6,overflow:'auto'}}>
-            <div style={{fontSize:9,color:'rgba(255,255,255,0.3)',fontFamily:'monospace'}}>🟩 Offense · 🟥 Defense · Select scheme → click player + drag</div>
-            <svg ref={lsSvgRef} viewBox={`0 0 ${FIELD_W} ${FIELD_H}`}
-              style={{height:'calc(100vh - 80px)',maxHeight:900,width:'auto',borderRadius:6,cursor:lsTool==='move'?(lsDragging?'grabbing':'default'):'crosshair',userSelect:'none',touchAction:'none',boxShadow:'0 0 28px rgba(0,0,0,0.8)'}}
-              onPointerMove={lH.onMove} onPointerUp={lH.onUp} onPointerLeave={lH.onUp} onClick={lH.onSvgClick}>
+          <div style={{flex:1,position:'relative',overflow:'hidden'}}>
+            <div style={{position:'absolute',top:8,left:'50%',transform:'translateX(-50%)',zIndex:10,fontSize:9,color:'rgba(255,255,255,0.3)',fontFamily:'monospace',pointerEvents:'none'}}>🟩 Offense · 🟥 Defense · Select scheme → click player + drag</div>
+            {/* Zoom controls for lineman studio */}
+            <div style={{position:'absolute',bottom:14,right:14,zIndex:10,display:'flex',flexDirection:'column',gap:4,alignItems:'center'}}>
+              <button onClick={zoomIn} style={{width:34,height:34,borderRadius:6,border:'1px solid #2d5a30',background:'rgba(10,26,12,0.92)',color:'#FFE033',fontSize:20,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>+</button>
+              <div style={{fontSize:9,color:'#4ade80',fontFamily:'monospace',textAlign:'center',background:'rgba(10,26,12,0.85)',borderRadius:4,padding:'2px 5px',border:'1px solid #1d4a20'}}>{Math.round(zoom*100)}%</div>
+              <button onClick={zoomOut} style={{width:34,height:34,borderRadius:6,border:'1px solid #2d5a30',background:'rgba(10,26,12,0.92)',color:'#FFE033',fontSize:24,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>−</button>
+              {zoom>1&&<button onClick={zoomReset} style={{width:34,height:20,borderRadius:4,border:'1px solid #FFE033',background:'rgba(255,224,51,0.12)',color:'#FFE033',fontSize:8,cursor:'pointer',fontFamily:'monospace'}}>FIT</button>}
+            </div>
+            <svg ref={lsSvgRef} viewBox={viewBox}
+              style={{height:'calc(100vh - 60px)',width:'100%',display:'block',borderRadius:6,
+                cursor:panning?'grabbing':lsTool==='move'?(lsDragging?'grabbing':'default'):'crosshair',
+                userSelect:'none',touchAction:'none'}}
+              onPointerMove={(e)=>{
+                if(panning&&panStart&&zoom>1){
+                  const svg=lsSvgRef.current,rect=svg.getBoundingClientRect()
+                  const dx=(e.clientX-panStart.x)*(vbW/rect.width)
+                  const dy=(e.clientY-panStart.y)*(vbH/rect.height)
+                  setPanX(clampedPanX-dx); setPanY(clampedPanY-dy)
+                  setPanStart({x:e.clientX,y:e.clientY})
+                } else { lH.onMove(e) }
+              }}
+              onPointerDown={(e)=>{ if(e.button===1||(zoom>1&&e.target===lsSvgRef.current)){e.preventDefault();setPanning(true);setPanStart({x:e.clientX,y:e.clientY})} }}
+              onPointerUp={(e)=>{setPanning(false);setPanStart(null);lH.onUp(e)}}
+              onPointerLeave={(e)=>{setPanning(false);setPanStart(null);lH.onUp(e)}}
+              onClick={lH.onSvgClick}>
               <FootballField showGaps={lsShowGaps}/>
               {lsShowGaps&&[{l:'A',x:FIELD_W/2+16},{l:'A',x:FIELD_W/2-16},{l:'B',x:FIELD_W/2+48},{l:'B',x:FIELD_W/2-48},{l:'C',x:FIELD_W/2+80},{l:'C',x:FIELD_W/2-80}].map((g,i)=>(
                 <text key={i} x={g.x} y={LOS_Y+24} textAnchor="middle" fill="rgba(255,220,50,0.3)" fontSize={9} fontFamily="monospace">{g.l} gap</text>
