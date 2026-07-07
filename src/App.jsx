@@ -169,11 +169,18 @@ function zigzag(pts) {
   return d
 }
 function lerp(a,b,t){return a+(b-a)*t}
-function getSVGPt(ref,e) {
-  const svg=ref.current,rect=svg.getBoundingClientRect()
-  const cx=e.touches?e.touches[0].clientX:e.clientX
-  const cy=e.touches?e.touches[0].clientY:e.clientY
-  return {x:(cx-rect.left)*(FIELD_W/rect.width),y:(cy-rect.top)*(FIELD_H/rect.height)}
+// NOTE: pass currentViewBox string when zoom/pan is active so coords map correctly
+function getSVGPt(ref, e, currentViewBox) {
+  const svg = ref.current, rect = svg.getBoundingClientRect()
+  const cx = e.touches ? e.touches[0].clientX : e.clientX
+  const cy = e.touches ? e.touches[0].clientY : e.clientY
+  const relX = (cx - rect.left) / rect.width
+  const relY = (cy - rect.top)  / rect.height
+  if (currentViewBox) {
+    const [vx, vy, vw, vh] = currentViewBox.split(' ').map(Number)
+    return { x: vx + relX * vw, y: vy + relY * vh }
+  }
+  return { x: relX * FIELD_W, y: relY * FIELD_H }
 }
 function blockColor(id){return BLOCK_TYPES.find(b=>b.id===id)?.color||'#4ADE80'}
 function blockCap(id){return BLOCK_TYPES.find(b=>b.id===id)?.endCap||'T'}
@@ -464,13 +471,13 @@ export default function App() {
     }}))
   },[lineStyle,endCap])
 
-  const makeHandlers=(ref,pList,setPList,rMap,setRMap,rHist,setRHist,dFor,setDFor,cPts,setCPts,drag,setDrag,sel,setSel,curTool,curBT,straight)=>{
+  const makeHandlers=(ref,pList,setPList,rMap,setRMap,rHist,setRHist,dFor,setDFor,cPts,setCPts,drag,setDrag,sel,setSel,curTool,curBT,straight,vb)=>{
     const isWaypointMode = straight  // "straight" param now means "waypoint/multi-segment mode"
     return {
     onPlayerDown:(e,id)=>{
       if(animating)return
       e.stopPropagation(); setSel(id)
-      const pt=getSVGPt(ref,e)
+      const pt=getSVGPt(ref,e,vb)
       pointerDownPos.current={x:pt.x,y:pt.y}
       if(curTool==='move'){
         const p=pList.find(p=>p.id===id)
@@ -490,7 +497,7 @@ export default function App() {
     },
     onMove:(e)=>{
       if(animating)return
-      const pt=getSVGPt(ref,e)
+      const pt=getSVGPt(ref,e,vb)
       if(drag) setPList(prev=>prev.map(p=>p.id===drag.id?{...p,cx:pt.x-drag.ox,cy:pt.y-drag.oy}:p))
       if(isWaypointMode){
         // Update live preview line to cursor
@@ -523,7 +530,7 @@ export default function App() {
     // Field click — used for waypoint placement
     onSvgClick:(e)=>{
       if(isWaypointMode && waypointActive && dFor){
-        const pt=getSVGPt(ref,e)
+        const pt=getSVGPt(ref,e,vb)
         // Check if this is a double-click (finish route)
         // We detect by checking if click is very close to last waypoint
         const last=waypointPts[waypointPts.length-1]
@@ -561,8 +568,8 @@ export default function App() {
     return()=>window.removeEventListener('keydown',onKey)
   },[waypointActive,waypointPts,drawingFor,tool,blockType,routes,commitWaypointRoute])
 
-  const mH=makeHandlers(svgRef,players,setPlayers,routes,setRoutes,routeHistory,setRouteHistory,drawingFor,setDrawingFor,currentPts,setCurrentPts,dragging,setDragging,selected,setSelected,tool,blockType,straightMode)
-  const lH=makeHandlers(lsSvgRef,lsPlayers,setLsPlayers,lsRoutes,setLsRoutes,lsRouteHist,setLsRouteHist,lsDrawFor,setLsDrawFor,lsCurPts,setLsCurPts,lsDragging,setLsDragging,lsSelected,setLsSelected,lsTool,lsBlockType,false)
+  const mH=makeHandlers(svgRef,players,setPlayers,routes,setRoutes,routeHistory,setRouteHistory,drawingFor,setDrawingFor,currentPts,setCurrentPts,dragging,setDragging,selected,setSelected,tool,blockType,straightMode,viewBox)
+  const lH=makeHandlers(lsSvgRef,lsPlayers,setLsPlayers,lsRoutes,setLsRoutes,lsRouteHist,setLsRouteHist,lsDrawFor,setLsDrawFor,lsCurPts,setLsCurPts,lsDragging,setLsDragging,lsSelected,setLsSelected,lsTool,lsBlockType,false,viewBox)
 
   // ── Animation ────────────────────────────────────────────────────────────
   const startAnim=()=>{
@@ -763,7 +770,7 @@ export default function App() {
               onPointerMove={(e)=>{
                 // Update waypoint preview cursor position
                 if(straightMode&&waypointActive){
-                  const pt=getSVGPt(svgRef,e); setPreviewPt({x:pt.x,y:pt.y})
+                  const pt=getSVGPt(svgRef,e,viewBox); setPreviewPt({x:pt.x,y:pt.y})
                 }
                 // Pan when zoomed
                 if(panning&&panStart&&zoom>1){
@@ -784,7 +791,7 @@ export default function App() {
               onDoubleClick={(e)=>{
                 // Double click on field in waypoint mode = finish route
                 if(straightMode&&waypointActive&&waypointPts.length>=2){
-                  const pt=getSVGPt(svgRef,e)
+                  const pt=getSVGPt(svgRef,e,viewBox)
                   const finalPts=[...waypointPts,{x:pt.x,y:pt.y}]
                   commitWaypointRoute(finalPts,drawingFor,tool==='block',blockType,routes,setRoutes,setRouteHistory)
                   setWaypointActive(false);setWaypointPts([]);setPreviewPt(null);setDrawingFor(null)
@@ -793,7 +800,7 @@ export default function App() {
               onClick={(e)=>{
                 // Single click on field in waypoint mode = add waypoint
                 if(straightMode&&waypointActive){
-                  const pt=getSVGPt(svgRef,e)
+                  const pt=getSVGPt(svgRef,e,viewBox)
                   setWaypointPts(prev=>[...prev,{x:pt.x,y:pt.y}])
                   return
                 }
