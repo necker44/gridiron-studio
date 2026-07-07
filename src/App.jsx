@@ -169,18 +169,22 @@ function zigzag(pts) {
   return d
 }
 function lerp(a,b,t){return a+(b-a)*t}
-// NOTE: pass currentViewBox string when zoom/pan is active so coords map correctly
-function getSVGPt(ref, e, currentViewBox) {
-  const svg = ref.current, rect = svg.getBoundingClientRect()
+// Reads the SVG's actual current viewBox from the DOM element itself
+// so coordinates are always correct regardless of React render timing
+function getSVGPt(ref, e) {
+  const svg = ref.current
+  if (!svg) return { x: 0, y: 0 }
+  const rect = svg.getBoundingClientRect()
   const cx = e.touches ? e.touches[0].clientX : e.clientX
   const cy = e.touches ? e.touches[0].clientY : e.clientY
   const relX = (cx - rect.left) / rect.width
   const relY = (cy - rect.top)  / rect.height
-  if (currentViewBox) {
-    const [vx, vy, vw, vh] = currentViewBox.split(' ').map(Number)
-    return { x: vx + relX * vw, y: vy + relY * vh }
+  // Read viewBox directly from DOM — always current, never stale
+  const vb = svg.viewBox.baseVal
+  return {
+    x: vb.x + relX * vb.width,
+    y: vb.y + relY * vb.height,
   }
-  return { x: relX * FIELD_W, y: relY * FIELD_H }
 }
 function blockColor(id){return BLOCK_TYPES.find(b=>b.id===id)?.color||'#4ADE80'}
 function blockCap(id){return BLOCK_TYPES.find(b=>b.id===id)?.endCap||'T'}
@@ -369,32 +373,67 @@ export default function App() {
   const [boardWidth,  setBoardWidth]  = useState(3)
   const [boardDrawing,setBoardDrawing]= useState(false)
 
-  // Zoom & pan (designer + lineman studio share the same controls)
-  const [zoom,    setZoom]    = useState(1)      // 1 = full view, max 4
-  const [panX,    setPanX]    = useState(0)      // offset in SVG units
+  // Zoom & pan
+  const [zoom,    setZoom]    = useState(1)
+  const [panX,    setPanX]    = useState(0)
   const [panY,    setPanY]    = useState(0)
   const [panning, setPanning] = useState(false)
   const [panStart,setPanStart]= useState(null)
-  const lastPinchDist = useRef(null)
 
-  // Compute dynamic viewBox from zoom + pan
-  const vbW = useMemo(()=>FIELD_W/zoom,[zoom])
-  const vbH = useMemo(()=>FIELD_H/zoom,[zoom])
-  // Clamp pan so we never scroll outside the field
-  const clampedPanX = useMemo(()=>Math.min(Math.max(panX,0),FIELD_W-vbW),[panX,vbW])
-  const clampedPanY = useMemo(()=>Math.min(Math.max(panY,0),FIELD_H-vbH),[panY,vbH])
-  const viewBox     = useMemo(()=>`${clampedPanX} ${clampedPanY} ${vbW} ${vbH}`,[clampedPanX,clampedPanY,vbW,vbH])
+  // viewBox derived from zoom+pan, clamped to field bounds
+  const vbW = FIELD_W / zoom
+  const vbH = FIELD_H / zoom
+  const cpX = Math.min(Math.max(panX, 0), FIELD_W - vbW)
+  const cpY = Math.min(Math.max(panY, 0), FIELD_H - vbH)
+  const viewBox = `${cpX} ${cpY} ${vbW} ${vbH}`
 
-  const zoomIn  = ()=>{ setZoom(z=>Math.min(z+0.5,4)); }
-  const zoomOut = ()=>{ setZoom(z=>{ const nz=Math.max(z-0.5,1); if(nz===1){setPanX(0);setPanY(0);} return nz; }); }
-  const zoomReset=()=>{ setZoom(1); setPanX(0); setPanY(0); }
+  // Zoom toward the center of the current view
+  const zoomToward = useCallback((newZoom) => {
+    setZoom(prev => {
+      const nz = Math.min(Math.max(newZoom, 1), 4)
+      if (nz === 1) { setPanX(0); setPanY(0); return 1 }
+      // Keep the center of the current view fixed
+      const curVbW = FIELD_W / prev
+      const curVbH = FIELD_H / prev
+      const centerX = panX + curVbW / 2
+      const centerY = panY + curVbH / 2
+      const newVbW = FIELD_W / nz
+      const newVbH = FIELD_H / nz
+      setPanX(centerX - newVbW / 2)
+      setPanY(centerY - newVbH / 2)
+      return nz
+    })
+  }, [panX, panY])
 
-  // Wheel zoom
-  const onWheelZoom = useCallback((e)=>{
+  const zoomIn    = () => zoomToward(zoom + 0.5)
+  const zoomOut   = () => zoomToward(zoom - 0.5)
+  const zoomReset = () => { setZoom(1); setPanX(0); setPanY(0) }
+
+  // Wheel zoom — zooms toward mouse position
+  const onWheelZoom = useCallback((e) => {
     e.preventDefault()
-    const delta = e.deltaY < 0 ? 0.25 : -0.25
-    setZoom(z=>{ const nz=Math.min(Math.max(z+delta,1),4); if(nz===1){setPanX(0);setPanY(0);} return nz; })
-  },[])
+    const svg = svgRef.current
+    if (!svg) return
+    const rect = svg.getBoundingClientRect()
+    const mouseRelX = (e.clientX - rect.left) / rect.width
+    const mouseRelY = (e.clientY - rect.top)  / rect.height
+    const delta = e.deltaY < 0 ? 0.3 : -0.3
+    setZoom(prev => {
+      const nz = Math.min(Math.max(prev + delta, 1), 4)
+      if (nz === 1) { setPanX(0); setPanY(0); return 1 }
+      const curVbW = FIELD_W / prev
+      const curVbH = FIELD_H / prev
+      // SVG coordinate under mouse
+      const mx = cpX + mouseRelX * curVbW
+      const my = cpY + mouseRelY * curVbH
+      const newVbW = FIELD_W / nz
+      const newVbH = FIELD_H / nz
+      // Keep mouse position fixed on screen
+      setPanX(mx - mouseRelX * newVbW)
+      setPanY(my - mouseRelY * newVbH)
+      return nz
+    })
+  }, [cpX, cpY])
 
   const svgRef   = useRef(null)
   const lsSvgRef = useRef(null)
@@ -458,11 +497,11 @@ export default function App() {
   }
 
   // ── Pointer helpers ──────────────────────────────────────────────────────
-  const makeHandlers=(ref,pList,setPList,rMap,setRMap,rHist,setRHist,dFor,setDFor,cPts,setCPts,drag,setDrag,sel,setSel,curTool,curBT,vb)=>({
+  const makeHandlers=(ref,pList,setPList,rMap,setRMap,rHist,setRHist,dFor,setDFor,cPts,setCPts,drag,setDrag,sel,setSel,curTool,curBT)=>({
     onPlayerDown:(e,id)=>{
       if(animating)return
       e.stopPropagation(); setSel(id)
-      const pt=getSVGPt(ref,e,vb)
+      const pt=getSVGPt(ref,e)
       if(curTool==='move'){
         const p=pList.find(p=>p.id===id)
         setDrag({id,ox:pt.x-p.cx,oy:pt.y-p.cy})
@@ -473,7 +512,7 @@ export default function App() {
     },
     onMove:(e)=>{
       if(animating)return
-      const pt=getSVGPt(ref,e,vb)
+      const pt=getSVGPt(ref,e)
       if(drag) setPList(prev=>prev.map(p=>p.id===drag.id?{...p,cx:pt.x-drag.ox,cy:pt.y-drag.oy}:p))
       if(dFor) setCPts(prev=>{
         const l=prev[prev.length-1]
@@ -524,7 +563,7 @@ export default function App() {
     e.stopPropagation()
     if(animating)return
     setSelected(id)
-    const pt=getSVGPt(svgRef,e,viewBox)
+    const pt=getSVGPt(svgRef,e)
     wpRef.current={active:true,pts:[{x:pt.x,y:pt.y}],playerId:id}
     setWaypointActive(true)
     setWaypointPts([{x:pt.x,y:pt.y}])
@@ -543,8 +582,8 @@ export default function App() {
     return()=>window.removeEventListener('keydown',onKey)
   },[wpCancel,wpFinish])
 
-  const mH=makeHandlers(svgRef,players,setPlayers,routes,setRoutes,routeHistory,setRouteHistory,drawingFor,setDrawingFor,currentPts,setCurrentPts,dragging,setDragging,selected,setSelected,tool,blockType,viewBox)
-  const lH=makeHandlers(lsSvgRef,lsPlayers,setLsPlayers,lsRoutes,setLsRoutes,lsRouteHist,setLsRouteHist,lsDrawFor,setLsDrawFor,lsCurPts,setLsCurPts,lsDragging,setLsDragging,lsSelected,setLsSelected,lsTool,lsBlockType,viewBox)
+  const mH=makeHandlers(svgRef,players,setPlayers,routes,setRoutes,routeHistory,setRouteHistory,drawingFor,setDrawingFor,currentPts,setCurrentPts,dragging,setDragging,selected,setSelected,tool,blockType)
+  const lH=makeHandlers(lsSvgRef,lsPlayers,setLsPlayers,lsRoutes,setLsRoutes,lsRouteHist,setLsRouteHist,lsDrawFor,setLsDrawFor,lsCurPts,setLsCurPts,lsDragging,setLsDragging,lsSelected,setLsSelected,lsTool,lsBlockType)
 
   // ── Animation ────────────────────────────────────────────────────────────
   const startAnim=()=>{
@@ -740,36 +779,46 @@ export default function App() {
             </div>
             <svg ref={svgRef} viewBox={viewBox}
               style={{height:'calc(100vh - 60px)',width:'100%',display:'block',borderRadius:6,
-                cursor:panning?'grabbing':waypointActive?'crosshair':tool==='move'?(dragging?'grabbing':'default'):'crosshair',
+                cursor:panning?'grabbing':waypointActive?'crosshair':tool==='move'?(zoom>1?'grab':'default'):'crosshair',
                 userSelect:'none',touchAction:'none'}}
               onPointerMove={(e)=>{
-                const pt=getSVGPt(svgRef,e,viewBox)
-                // Waypoint preview
-                if(waypointActive) setPreviewPt({x:pt.x,y:pt.y})
-                // Pan
-                if(panning&&panStart&&zoom>1){
+                if(waypointActive){
+                  setPreviewPt(getSVGPt(svgRef,e))
+                  return
+                }
+                if(panning&&panStart){
+                  // Pan by moving in SVG units
                   const svg=svgRef.current,rect=svg.getBoundingClientRect()
-                  const dx=(e.clientX-panStart.x)*(vbW/rect.width)
-                  const dy=(e.clientY-panStart.y)*(vbH/rect.height)
-                  setPanX(clampedPanX-dx); setPanY(clampedPanY-dy)
+                  const scaleX=vbW/rect.width, scaleY=vbH/rect.height
+                  const dx=(e.clientX-panStart.x)*scaleX
+                  const dy=(e.clientY-panStart.y)*scaleY
+                  setPanX(p=>p-dx); setPanY(p=>p-dy)
                   setPanStart({x:e.clientX,y:e.clientY})
-                } else if(!waypointActive){ mH.onMove(e) }
-              }}
-              onPointerDown={(e)=>{
-                if(e.button===1||(zoom>1&&e.target===svgRef.current&&!waypointActive)){
-                  e.preventDefault(); setPanning(true); setPanStart({x:e.clientX,y:e.clientY})
+                } else {
+                  mH.onMove(e)
                 }
               }}
-              onPointerUp={(e)=>{ setPanning(false); setPanStart(null); if(!waypointActive)mH.onUp(e) }}
-              onPointerLeave={(e)=>{ setPanning(false); setPanStart(null); if(!waypointActive&&!straightMode)mH.onUp(e) }}
-              onDoubleClick={(e)=>{
-                if(waypointActive){ e.preventDefault(); wpFinish() }
+              onPointerDown={(e)=>{
+                if(waypointActive) return
+                // Pan with middle mouse OR left mouse in move tool when zoomed
+                if(e.button===1||(e.button===0&&zoom>1&&tool==='move')){
+                  e.preventDefault()
+                  setPanning(true); setPanStart({x:e.clientX,y:e.clientY})
+                }
               }}
+              onPointerUp={(e)=>{
+                if(panning){ setPanning(false); setPanStart(null); return }
+                if(!waypointActive) mH.onUp(e)
+              }}
+              onPointerLeave={(e)=>{
+                if(panning){ setPanning(false); setPanStart(null); return }
+                if(!waypointActive&&!straightMode) mH.onUp(e)
+              }}
+              onDoubleClick={(e)=>{ if(waypointActive){ e.preventDefault(); wpFinish() } }}
               onClick={(e)=>{
+                if(panning) return
                 if(waypointActive){
-                  // Add waypoint on every click; double-click fires this then onDoubleClick
-                  // so we just add the point — wpFinish handles the double-click separately
-                  const pt=getSVGPt(svgRef,e,viewBox)
+                  const pt=getSVGPt(svgRef,e)
                   wpRef.current.pts=[...wpRef.current.pts,{x:pt.x,y:pt.y}]
                   setWaypointPts([...wpRef.current.pts])
                   return
@@ -857,19 +906,20 @@ export default function App() {
             </div>
             <svg ref={lsSvgRef} viewBox={viewBox}
               style={{height:'calc(100vh - 60px)',width:'100%',display:'block',borderRadius:6,
-                cursor:panning?'grabbing':lsTool==='move'?(lsDragging?'grabbing':'default'):'crosshair',
+                cursor:panning?'grabbing':lsTool==='move'?(zoom>1?'grab':'default'):'crosshair',
                 userSelect:'none',touchAction:'none'}}
               onPointerMove={(e)=>{
-                if(panning&&panStart&&zoom>1){
+                if(panning&&panStart){
                   const svg=lsSvgRef.current,rect=svg.getBoundingClientRect()
-                  const dx=(e.clientX-panStart.x)*(vbW/rect.width)
-                  const dy=(e.clientY-panStart.y)*(vbH/rect.height)
-                  setPanX(clampedPanX-dx); setPanY(clampedPanY-dy)
+                  const scaleX=vbW/rect.width,scaleY=vbH/rect.height
+                  const dx=(e.clientX-panStart.x)*scaleX
+                  const dy=(e.clientY-panStart.y)*scaleY
+                  setPanX(p=>p-dx); setPanY(p=>p-dy)
                   setPanStart({x:e.clientX,y:e.clientY})
                 } else { lH.onMove(e) }
               }}
-              onPointerDown={(e)=>{ if(e.button===1||(zoom>1&&e.target===lsSvgRef.current)){e.preventDefault();setPanning(true);setPanStart({x:e.clientX,y:e.clientY})} }}
-              onPointerUp={(e)=>{setPanning(false);setPanStart(null);lH.onUp(e)}}
+              onPointerDown={(e)=>{ if(e.button===1||(e.button===0&&zoom>1&&lsTool==='move')){e.preventDefault();setPanning(true);setPanStart({x:e.clientX,y:e.clientY})} }}
+              onPointerUp={(e)=>{if(panning){setPanning(false);setPanStart(null)}else lH.onUp(e)}}
               onPointerLeave={(e)=>{setPanning(false);setPanStart(null);lH.onUp(e)}}
               onClick={lH.onSvgClick}>
               <FootballField showGaps={lsShowGaps}/>
