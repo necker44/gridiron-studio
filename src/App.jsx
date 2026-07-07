@@ -331,9 +331,12 @@ export default function App() {
   const [lineStyle,   setLineStyle]   = useState('solid')
   const [endCap,      setEndCap]      = useState('arrow')
   const [straightMode,setStraightMode]= useState(false)  // freehand vs waypoint click mode
-  const [waypointActive,setWaypointActive]= useState(false) // currently placing waypoints
-  const [waypointPts,setWaypointPts]  = useState([])     // committed waypoint clicks
-  const [previewPt,setPreviewPt]      = useState(null)   // live cursor position for preview line
+  const [waypointActive,setWaypointActive]= useState(false)
+  const [waypointPts,setWaypointPts]      = useState([])
+  const [previewPt,setPreviewPt]          = useState(null)
+  const [waypointPlayerId,setWaypointPlayerId]= useState(null)
+  // Use ref to avoid stale closures in event handlers
+  const wpRef = useRef({active:false,pts:[],playerId:null})
   const [blockType,   setBlockType]   = useState('drive')
   const [dragging,    setDragging]    = useState(null)
   const [selected,    setSelected]    = useState(null)
@@ -455,43 +458,16 @@ export default function App() {
   }
 
   // ── Pointer helpers ──────────────────────────────────────────────────────
-  // Track pointer-down position to distinguish drag vs click
-  const pointerDownPos = useRef(null)
-
-  // ── Commit waypoint route ─────────────────────────────────────────────────
-  const commitWaypointRoute = useCallback((pts, dFor, isBlock, curBT, rMap, setRMap, setRHist)=>{
-    if(!dFor||pts.length<2) return
-    setRHist(h=>[...h.slice(-19),{routes:{...rMap}}])
-    setRMap(prev=>({...prev,[dFor]:{
-      pts,
-      color:isBlock?blockColor(curBT):'#FFE033',
-      lineStyle:isBlock?'solid':lineStyle,
-      endCap:isBlock?blockCap(curBT):endCap,
-      blockType:isBlock?curBT:null,
-    }}))
-  },[lineStyle,endCap])
-
-  const makeHandlers=(ref,pList,setPList,rMap,setRMap,rHist,setRHist,dFor,setDFor,cPts,setCPts,drag,setDrag,sel,setSel,curTool,curBT,straight,vb)=>{
-    const isWaypointMode = straight  // "straight" param now means "waypoint/multi-segment mode"
-    return {
+  const makeHandlers=(ref,pList,setPList,rMap,setRMap,rHist,setRHist,dFor,setDFor,cPts,setCPts,drag,setDrag,sel,setSel,curTool,curBT,vb)=>({
     onPlayerDown:(e,id)=>{
       if(animating)return
       e.stopPropagation(); setSel(id)
       const pt=getSVGPt(ref,e,vb)
-      pointerDownPos.current={x:pt.x,y:pt.y}
       if(curTool==='move'){
         const p=pList.find(p=>p.id===id)
         setDrag({id,ox:pt.x-p.cx,oy:pt.y-p.cy})
-      } else if(isWaypointMode){
-        // In waypoint mode: clicking a player starts the route
-        if(!waypointActive){
-          setDrawingFor && setDFor(id)
-          setWaypointActive(true)
-          setWaypointPts([{x:pt.x,y:pt.y}])
-          setPreviewPt({x:pt.x,y:pt.y})
-        }
       } else {
-        // Freehand mode: start drawing on pointer down
+        // Freehand: start on pointer down
         setDFor(id); setCPts([{x:pt.x,y:pt.y}])
       }
     },
@@ -499,20 +475,14 @@ export default function App() {
       if(animating)return
       const pt=getSVGPt(ref,e,vb)
       if(drag) setPList(prev=>prev.map(p=>p.id===drag.id?{...p,cx:pt.x-drag.ox,cy:pt.y-drag.oy}:p))
-      if(isWaypointMode){
-        // Update live preview line to cursor
-        if(waypointActive) setPreviewPt({x:pt.x,y:pt.y})
-      } else {
-        if(dFor) setCPts(prev=>{
-          const l=prev[prev.length-1]
-          return(!l||Math.hypot(pt.x-l.x,pt.y-l.y)>5)?[...prev,{x:pt.x,y:pt.y}]:prev
-        })
-      }
+      if(dFor) setCPts(prev=>{
+        const l=prev[prev.length-1]
+        return(!l||Math.hypot(pt.x-l.x,pt.y-l.y)>5)?[...prev,{x:pt.x,y:pt.y}]:prev
+      })
     },
     onUp:()=>{
       if(drag){setDrag(null);return}
-      if(!isWaypointMode && dFor&&cPts.length>1){
-        // Freehand commit
+      if(dFor&&cPts.length>1){
         setRHist(h=>[...h.slice(-19),{routes:{...rMap}}])
         const isBlock=curTool==='block'
         setRMap(prev=>({...prev,[dFor]:{
@@ -523,53 +493,58 @@ export default function App() {
           blockType:isBlock?curBT:null,
         }}))
         setDFor(null); setCPts([])
-      } else if(!isWaypointMode && dFor){
-        setDFor(null); setCPts([])
-      }
+      } else if(dFor){setDFor(null);setCPts([])}
     },
-    // Field click — used for waypoint placement
-    onSvgClick:(e)=>{
-      if(isWaypointMode && waypointActive && dFor){
-        const pt=getSVGPt(ref,e,vb)
-        // Check if this is a double-click (finish route)
-        // We detect by checking if click is very close to last waypoint
-        const last=waypointPts[waypointPts.length-1]
-        const isNearLast = last && Math.hypot(pt.x-last.x,pt.y-last.y)<15
-        if(isNearLast){
-          // Double-tap/double-click on same spot = finish
-          if(waypointPts.length>=2){
-            commitWaypointRoute(waypointPts,dFor,curTool==='block',curBT,rMap,setRMap,setRHist)
-          }
-          setWaypointActive(false); setWaypointPts([]); setPreviewPt(null); setDFor(null)
-        } else {
-          // Add waypoint
-          setWaypointPts(prev=>[...prev,{x:pt.x,y:pt.y}])
-        }
-        return
-      }
-      if(!isWaypointMode && e.target===ref.current) setSel(null)
-      if(isWaypointMode && !waypointActive && e.target===ref.current) setSel(null)
-    },
-  }}
+    onSvgClick:(e)=>{ if(e.target===ref.current) setSel(null) },
+  })
 
-  // Cancel waypoint route with Escape
+  // ── Waypoint system — fully separate from makeHandlers ───────────────────
+  // Uses wpRef so handlers never have stale closure issues
+  const wpFinish = useCallback(()=>{
+    const {pts,playerId}=wpRef.current
+    if(pts.length>=2&&playerId){
+      setRouteHistory(h=>[...h.slice(-19),{routes:{...routes}}])
+      setRoutes(prev=>({...prev,[playerId]:{
+        pts:[...pts],
+        color:'#FFE033', lineStyle, endCap, blockType:null,
+      }}))
+    }
+    wpRef.current={active:false,pts:[],playerId:null}
+    setWaypointActive(false); setWaypointPts([]); setPreviewPt(null); setWaypointPlayerId(null)
+    setDrawingFor(null)
+  },[routes,lineStyle,endCap])
+
+  const wpCancel = useCallback(()=>{
+    wpRef.current={active:false,pts:[],playerId:null}
+    setWaypointActive(false); setWaypointPts([]); setPreviewPt(null); setWaypointPlayerId(null)
+    setDrawingFor(null)
+  },[])
+
+  const wpStartOnPlayer = useCallback((e,id)=>{
+    e.stopPropagation()
+    if(animating)return
+    setSelected(id)
+    const pt=getSVGPt(svgRef,e,viewBox)
+    wpRef.current={active:true,pts:[{x:pt.x,y:pt.y}],playerId:id}
+    setWaypointActive(true)
+    setWaypointPts([{x:pt.x,y:pt.y}])
+    setWaypointPlayerId(id)
+    setPreviewPt({x:pt.x,y:pt.y})
+    setDrawingFor(id)
+  },[animating,viewBox])
+  // Keyboard handler for waypoint mode
   useEffect(()=>{
     const onKey=(e)=>{
-      if(e.key==='Escape'&&waypointActive){
-        setWaypointActive(false); setWaypointPts([]); setPreviewPt(null)
-        setDrawingFor(null)
-      }
-      if(e.key==='Enter'&&waypointActive&&waypointPts.length>=2){
-        commitWaypointRoute(waypointPts,drawingFor,tool==='block',blockType,routes,setRoutes,setRouteHistory)
-        setWaypointActive(false); setWaypointPts([]); setPreviewPt(null); setDrawingFor(null)
-      }
+      if(!wpRef.current.active)return
+      if(e.key==='Escape') wpCancel()
+      if(e.key==='Enter')  wpFinish()
     }
     window.addEventListener('keydown',onKey)
     return()=>window.removeEventListener('keydown',onKey)
-  },[waypointActive,waypointPts,drawingFor,tool,blockType,routes,commitWaypointRoute])
+  },[wpCancel,wpFinish])
 
-  const mH=makeHandlers(svgRef,players,setPlayers,routes,setRoutes,routeHistory,setRouteHistory,drawingFor,setDrawingFor,currentPts,setCurrentPts,dragging,setDragging,selected,setSelected,tool,blockType,straightMode,viewBox)
-  const lH=makeHandlers(lsSvgRef,lsPlayers,setLsPlayers,lsRoutes,setLsRoutes,lsRouteHist,setLsRouteHist,lsDrawFor,setLsDrawFor,lsCurPts,setLsCurPts,lsDragging,setLsDragging,lsSelected,setLsSelected,lsTool,lsBlockType,false,viewBox)
+  const mH=makeHandlers(svgRef,players,setPlayers,routes,setRoutes,routeHistory,setRouteHistory,drawingFor,setDrawingFor,currentPts,setCurrentPts,dragging,setDragging,selected,setSelected,tool,blockType,viewBox)
+  const lH=makeHandlers(lsSvgRef,lsPlayers,setLsPlayers,lsRoutes,setLsRoutes,lsRouteHist,setLsRouteHist,lsDrawFor,setLsDrawFor,lsCurPts,setLsCurPts,lsDragging,setLsDragging,lsSelected,setLsSelected,lsTool,lsBlockType,viewBox)
 
   // ── Animation ────────────────────────────────────────────────────────────
   const startAnim=()=>{
@@ -765,43 +740,38 @@ export default function App() {
             </div>
             <svg ref={svgRef} viewBox={viewBox}
               style={{height:'calc(100vh - 60px)',width:'100%',display:'block',borderRadius:6,
-                cursor:panning?'grabbing':tool==='move'?(dragging?'grabbing':'default'):'crosshair',
+                cursor:panning?'grabbing':waypointActive?'crosshair':tool==='move'?(dragging?'grabbing':'default'):'crosshair',
                 userSelect:'none',touchAction:'none'}}
               onPointerMove={(e)=>{
-                // Update waypoint preview cursor position
-                if(straightMode&&waypointActive){
-                  const pt=getSVGPt(svgRef,e,viewBox); setPreviewPt({x:pt.x,y:pt.y})
-                }
-                // Pan when zoomed
+                const pt=getSVGPt(svgRef,e,viewBox)
+                // Waypoint preview
+                if(waypointActive) setPreviewPt({x:pt.x,y:pt.y})
+                // Pan
                 if(panning&&panStart&&zoom>1){
                   const svg=svgRef.current,rect=svg.getBoundingClientRect()
                   const dx=(e.clientX-panStart.x)*(vbW/rect.width)
                   const dy=(e.clientY-panStart.y)*(vbH/rect.height)
                   setPanX(clampedPanX-dx); setPanY(clampedPanY-dy)
                   setPanStart({x:e.clientX,y:e.clientY})
-                } else { mH.onMove(e) }
+                } else if(!waypointActive){ mH.onMove(e) }
               }}
               onPointerDown={(e)=>{
-                if(e.button===1||(zoom>1&&e.target===svgRef.current&&!straightMode)){
+                if(e.button===1||(zoom>1&&e.target===svgRef.current&&!waypointActive)){
                   e.preventDefault(); setPanning(true); setPanStart({x:e.clientX,y:e.clientY})
                 }
               }}
-              onPointerUp={(e)=>{ setPanning(false); setPanStart(null); mH.onUp(e) }}
-              onPointerLeave={(e)=>{ setPanning(false); setPanStart(null); if(!straightMode)mH.onUp(e) }}
+              onPointerUp={(e)=>{ setPanning(false); setPanStart(null); if(!waypointActive)mH.onUp(e) }}
+              onPointerLeave={(e)=>{ setPanning(false); setPanStart(null); if(!waypointActive&&!straightMode)mH.onUp(e) }}
               onDoubleClick={(e)=>{
-                // Double click on field in waypoint mode = finish route
-                if(straightMode&&waypointActive&&waypointPts.length>=2){
-                  const pt=getSVGPt(svgRef,e,viewBox)
-                  const finalPts=[...waypointPts,{x:pt.x,y:pt.y}]
-                  commitWaypointRoute(finalPts,drawingFor,tool==='block',blockType,routes,setRoutes,setRouteHistory)
-                  setWaypointActive(false);setWaypointPts([]);setPreviewPt(null);setDrawingFor(null)
-                }
+                if(waypointActive){ e.preventDefault(); wpFinish() }
               }}
               onClick={(e)=>{
-                // Single click on field in waypoint mode = add waypoint
-                if(straightMode&&waypointActive){
+                if(waypointActive){
+                  // Add waypoint on every click; double-click fires this then onDoubleClick
+                  // so we just add the point — wpFinish handles the double-click separately
                   const pt=getSVGPt(svgRef,e,viewBox)
-                  setWaypointPts(prev=>[...prev,{x:pt.x,y:pt.y}])
+                  wpRef.current.pts=[...wpRef.current.pts,{x:pt.x,y:pt.y}]
+                  setWaypointPts([...wpRef.current.pts])
                   return
                 }
                 mH.onSvgClick(e)
@@ -810,34 +780,36 @@ export default function App() {
               {Object.entries(routes).map(([id,r])=><RouteLayer key={id} r={r} lineStyle={lineStyle} endCap={endCap}/>)}
               {/* Freehand preview */}
               {!straightMode&&drawingFor&&currentPts.length>1&&<RouteLayer r={{pts:currentPts,color:'#fff',lineStyle:tool==='block'?'solid':lineStyle,endCap:tool==='block'?blockCap(blockType):endCap}} lineStyle={lineStyle} endCap={endCap} highlight/>}
-              {/* Waypoint mode: draw committed segments + live preview to cursor */}
-              {straightMode&&waypointActive&&waypointPts.length>0&&(
+              {/* Waypoint segments + preview */}
+              {waypointActive&&waypointPts.length>0&&(
                 <g>
-                  {/* Committed segments */}
-                  {waypointPts.length>1&&<polyline points={waypointPts.map(p=>`${p.x},${p.y}`).join(' ')} fill="none" stroke="#FFE033" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" opacity={0.9}/>}
-                  {/* Live preview line from last waypoint to cursor */}
-                  {previewPt&&<line x1={waypointPts[waypointPts.length-1].x} y1={waypointPts[waypointPts.length-1].y} x2={previewPt.x} y2={previewPt.y} stroke="rgba(255,255,255,0.5)" strokeWidth={1.5} strokeDasharray="5,4"/>}
-                  {/* Waypoint dots */}
+                  {waypointPts.length>1&&<polyline points={waypointPts.map(p=>`${p.x},${p.y}`).join(' ')} fill="none" stroke="#FFE033" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" opacity={0.95}/>}
+                  {previewPt&&waypointPts.length>=1&&<line x1={waypointPts[waypointPts.length-1].x} y1={waypointPts[waypointPts.length-1].y} x2={previewPt.x} y2={previewPt.y} stroke="rgba(255,255,255,0.45)" strokeWidth={1.5} strokeDasharray="6,4"/>}
                   {waypointPts.map((p,i)=>(
-                    <circle key={i} cx={p.x} cy={p.y} r={i===0?5:4}
-                      fill={i===0?'#FFE033':'#fff'} stroke="#060e07" strokeWidth={1.5}
-                      style={{cursor:'pointer'}}
-                      onClick={(e)=>{
-                        e.stopPropagation()
-                        // Click on first dot to close/finish
-                        if(i===0&&waypointPts.length>=2){
-                          commitWaypointRoute(waypointPts,drawingFor,tool==='block',blockType,routes,setRoutes,setRouteHistory)
-                          setWaypointActive(false);setWaypointPts([]);setPreviewPt(null);setDrawingFor(null)
-                        }
-                      }}/>
+                    <circle key={i} cx={p.x} cy={p.y} r={i===0?6:4}
+                      fill={i===0?'#FFE033':'rgba(255,255,255,0.9)'} stroke="#060e07" strokeWidth={1.5}/>
                   ))}
-                  {/* Finish hint */}
                   {waypointPts.length>=2&&previewPt&&(
-                    <text x={previewPt.x+10} y={previewPt.y-8} fill="rgba(255,255,255,0.5)" fontSize={9} fontFamily="monospace">dbl-click or Enter to finish · Esc to cancel</text>
+                    <text x={previewPt.x+12} y={previewPt.y-10} fill="rgba(255,255,255,0.45)" fontSize={9} fontFamily="monospace">double-click or Enter to finish · Esc to cancel</text>
                   )}
                 </g>
               )}
-              {players.map(p=>{const ap=animating&&animSnap?getAnimPos(p):null;return<PlayerIcon key={p.id} p={p} selected={selected===p.id} hasRoute={!!routes[p.id]} drawingActive={drawingFor===p.id||(!straightMode&&drawingFor===p.id)} cx={ap?.cx} cy={ap?.cy} onPointerDown={e=>mH.onPlayerDown(e,p.id)}/>})}
+              {/* Players — in waypoint mode, clicking a player starts/is ignored */}
+              {players.map(p=>(
+                <PlayerIcon key={p.id} p={p}
+                  selected={selected===p.id}
+                  hasRoute={!!routes[p.id]}
+                  drawingActive={drawingFor===p.id}
+                  cx={animating&&animSnap?getAnimPos(p)?.cx:undefined}
+                  cy={animating&&animSnap?getAnimPos(p)?.cy:undefined}
+                  onPointerDown={(e)=>{
+                    if(straightMode&&!waypointActive&&(tool==='route'||tool==='block')){
+                      wpStartOnPlayer(e,p.id)
+                    } else if(!waypointActive){
+                      mH.onPlayerDown(e,p.id)
+                    }
+                  }}/>
+              ))}
               {!animating&&<ellipse cx={FIELD_W/2} cy={LOS_Y+8} rx={5} ry={8} fill="#8B4513" stroke="#FFE033" strokeWidth={1} opacity={0.9}/>}
             </svg>
           </div>
