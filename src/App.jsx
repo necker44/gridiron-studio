@@ -93,7 +93,25 @@ function makeLSPlayers() {
   ]
 }
 
-const EXTRA_DEF = DEFENSE_BENCH.map((p,i)=>({...p,id:`xd_${p.label}_${i}`,cx:FIELD_W/2+(i-5)*35,cy:LOS_Y-25,isExtra:true}))
+// 5-3 defense: 5 down linemen, 3 linebackers, 3 DBs
+// Positions are relative offsets from LOS_X/LOS_Y — set in addExtra()
+const EXTRA_DEF_53 = [
+  // ── 5 Down Linemen ──────────────────────────────────────────────
+  { id:'x53_LDE', label:'DE', color:'#F87171', unit:'dl', isExtra:true, ox:-105, oy:-28 },
+  { id:'x53_LDT', label:'DT', color:'#F87171', unit:'dl', isExtra:true, ox:-38,  oy:-28 },
+  { id:'x53_NT',  label:'NT', color:'#F87171', unit:'dl', isExtra:true, ox:0,    oy:-28 },
+  { id:'x53_RDT', label:'DT', color:'#F87171', unit:'dl', isExtra:true, ox:38,   oy:-28 },
+  { id:'x53_RDE', label:'DE', color:'#F87171', unit:'dl', isExtra:true, ox:105,  oy:-28 },
+  // ── 3 Linebackers ───────────────────────────────────────────────
+  { id:'x53_WLB', label:'WLB',color:'#60A5FA', unit:'lb', isExtra:true, ox:-65,  oy:-85 },
+  { id:'x53_MLB', label:'MLB',color:'#60A5FA', unit:'lb', isExtra:true, ox:0,    oy:-85 },
+  { id:'x53_SLB', label:'SLB',color:'#60A5FA', unit:'lb', isExtra:true, ox:65,   oy:-85 },
+  // ── 3 Defensive Backs ───────────────────────────────────────────
+  { id:'x53_LCB', label:'CB', color:'#FFE033', unit:'db', isExtra:true, ox:-185, oy:-28 },
+  { id:'x53_RCB', label:'CB', color:'#FFE033', unit:'db', isExtra:true, ox:185,  oy:-28 },
+  { id:'x53_S',   label:'S',  color:'#C084FC', unit:'db', isExtra:true, ox:0,    oy:-155 },
+]
+
 const EXTRA_OFF = OFFENSE_BENCH.map((p,i)=>({...p,id:`xo_${p.label}_${i}`,cx:FIELD_W/2+(i-5)*35,cy:LOS_Y,isExtra:true}))
 
 const BLOCK_TYPES = [
@@ -481,9 +499,18 @@ export default function App() {
 
   // ── Add/remove opponent ──────────────────────────────────────────────────
   const addExtra=()=>{
-    const defs=mode==='offense'?EXTRA_DEF:EXTRA_OFF
     const ex=players.map(p=>p.id)
-    setPlayers(prev=>[...prev,...defs.filter(p=>!ex.includes(p.id))])
+    if(mode==='offense'){
+      // Place 5-3 defense aligned to the center of the field / LOS
+      const bx=FIELD_W/2, by=LOS_Y
+      const toAdd=EXTRA_DEF_53
+        .filter(p=>!ex.includes(p.id))
+        .map(p=>({...p, cx:bx+p.ox, cy:by+p.oy}))
+      setPlayers(prev=>[...prev,...toAdd])
+    } else {
+      const toAdd=EXTRA_OFF.filter(p=>!ex.includes(p.id))
+      setPlayers(prev=>[...prev,...toAdd])
+    }
     setHasExtra(true)
   }
   const removeExtra=()=>{
