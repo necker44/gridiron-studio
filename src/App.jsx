@@ -93,26 +93,190 @@ function makeLSPlayers() {
   ]
 }
 
-// 5-3 defense: 5 down linemen, 3 linebackers, 3 DBs
-// Positions are relative offsets from LOS_X/LOS_Y — set in addExtra()
-const EXTRA_DEF_53 = [
-  // ── 5 Down Linemen ──────────────────────────────────────────────
-  { id:'x53_LDE', label:'DE', color:'#F87171', unit:'dl', isExtra:true, ox:-105, oy:-28 },
-  { id:'x53_LDT', label:'DT', color:'#F87171', unit:'dl', isExtra:true, ox:-38,  oy:-28 },
-  { id:'x53_NT',  label:'NT', color:'#F87171', unit:'dl', isExtra:true, ox:0,    oy:-28 },
-  { id:'x53_RDT', label:'DT', color:'#F87171', unit:'dl', isExtra:true, ox:38,   oy:-28 },
-  { id:'x53_RDE', label:'DE', color:'#F87171', unit:'dl', isExtra:true, ox:105,  oy:-28 },
-  // ── 3 Linebackers ───────────────────────────────────────────────
-  { id:'x53_WLB', label:'WLB',color:'#60A5FA', unit:'lb', isExtra:true, ox:-65,  oy:-85 },
-  { id:'x53_MLB', label:'MLB',color:'#60A5FA', unit:'lb', isExtra:true, ox:0,    oy:-85 },
-  { id:'x53_SLB', label:'SLB',color:'#60A5FA', unit:'lb', isExtra:true, ox:65,   oy:-85 },
-  // ── 3 Defensive Backs ───────────────────────────────────────────
-  { id:'x53_LCB', label:'CB', color:'#FFE033', unit:'db', isExtra:true, ox:-185, oy:-28 },
-  { id:'x53_RCB', label:'CB', color:'#FFE033', unit:'db', isExtra:true, ox:185,  oy:-28 },
-  { id:'x53_S',   label:'S',  color:'#C084FC', unit:'db', isExtra:true, ox:0,    oy:-155 },
-]
+// ─── Extra formation definitions (relative offsets from FIELD_W/2, LOS_Y) ──
+// Defense formations
+const DEF_FORMATIONS = {
+  '5-3': {
+    label:'5-3 Defense',
+    players:[
+      {id:'xd_LDE', label:'DE', color:'#F87171',unit:'dl',ox:-105,oy:-28},
+      {id:'xd_LDT', label:'DT', color:'#F87171',unit:'dl',ox:-38, oy:-28},
+      {id:'xd_NT',  label:'NT', color:'#F87171',unit:'dl',ox:0,   oy:-28},
+      {id:'xd_RDT', label:'DT', color:'#F87171',unit:'dl',ox:38,  oy:-28},
+      {id:'xd_RDE', label:'DE', color:'#F87171',unit:'dl',ox:105, oy:-28},
+      {id:'xd_WLB', label:'WLB',color:'#60A5FA',unit:'lb',ox:-65, oy:-85},
+      {id:'xd_MLB', label:'MLB',color:'#60A5FA',unit:'lb',ox:0,   oy:-85},
+      {id:'xd_SLB', label:'SLB',color:'#60A5FA',unit:'lb',ox:65,  oy:-85},
+      {id:'xd_LCB', label:'CB', color:'#FFE033',unit:'db',ox:-185,oy:-28},
+      {id:'xd_RCB', label:'CB', color:'#FFE033',unit:'db',ox:185, oy:-28},
+      {id:'xd_S',   label:'S',  color:'#C084FC',unit:'db',ox:0,   oy:-155},
+    ]
+  },
+  '5-2': {
+    label:'5-2 Defense',
+    players:[
+      {id:'xd_LDE', label:'DE', color:'#F87171',unit:'dl',ox:-105,oy:-28},
+      {id:'xd_LDT', label:'DT', color:'#F87171',unit:'dl',ox:-38, oy:-28},
+      {id:'xd_NT',  label:'NT', color:'#F87171',unit:'dl',ox:0,   oy:-28},
+      {id:'xd_RDT', label:'DT', color:'#F87171',unit:'dl',ox:38,  oy:-28},
+      {id:'xd_RDE', label:'DE', color:'#F87171',unit:'dl',ox:105, oy:-28},
+      {id:'xd_WLB', label:'WLB',color:'#60A5FA',unit:'lb',ox:-45, oy:-85},
+      {id:'xd_SLB', label:'SLB',color:'#60A5FA',unit:'lb',ox:45,  oy:-85},
+      {id:'xd_LCB', label:'CB', color:'#FFE033',unit:'db',ox:-185,oy:-28},
+      {id:'xd_RCB', label:'CB', color:'#FFE033',unit:'db',ox:185, oy:-28},
+      {id:'xd_SS',  label:'SS', color:'#C084FC',unit:'db',ox:-50, oy:-145},
+      {id:'xd_FS',  label:'FS', color:'#C084FC',unit:'db',ox:50,  oy:-160},
+    ]
+  },
+  '4-4': {
+    label:'4-4 Defense',
+    players:[
+      {id:'xd_LDE', label:'DE', color:'#F87171',unit:'dl',ox:-85, oy:-28},
+      {id:'xd_LDT', label:'DT', color:'#F87171',unit:'dl',ox:-30, oy:-28},
+      {id:'xd_RDT', label:'DT', color:'#F87171',unit:'dl',ox:30,  oy:-28},
+      {id:'xd_RDE', label:'DE', color:'#F87171',unit:'dl',ox:85,  oy:-28},
+      {id:'xd_WLB', label:'WLB',color:'#60A5FA',unit:'lb',ox:-75, oy:-80},
+      {id:'xd_ILB1',label:'ILB',color:'#60A5FA',unit:'lb',ox:-20, oy:-80},
+      {id:'xd_ILB2',label:'ILB',color:'#60A5FA',unit:'lb',ox:20,  oy:-80},
+      {id:'xd_SLB', label:'SLB',color:'#60A5FA',unit:'lb',ox:75,  oy:-80},
+      {id:'xd_LCB', label:'CB', color:'#FFE033',unit:'db',ox:-175,oy:-28},
+      {id:'xd_RCB', label:'CB', color:'#FFE033',unit:'db',ox:175, oy:-28},
+      {id:'xd_S',   label:'S',  color:'#C084FC',unit:'db',ox:0,   oy:-150},
+    ]
+  },
+  '4-3': {
+    label:'4-3 Defense',
+    players:[
+      {id:'xd_LDE', label:'DE', color:'#F87171',unit:'dl',ox:-85, oy:-28},
+      {id:'xd_LDT', label:'DT', color:'#F87171',unit:'dl',ox:-30, oy:-28},
+      {id:'xd_RDT', label:'DT', color:'#F87171',unit:'dl',ox:30,  oy:-28},
+      {id:'xd_RDE', label:'DE', color:'#F87171',unit:'dl',ox:85,  oy:-28},
+      {id:'xd_WLB', label:'WLB',color:'#60A5FA',unit:'lb',ox:-55, oy:-85},
+      {id:'xd_MLB', label:'MLB',color:'#60A5FA',unit:'lb',ox:0,   oy:-85},
+      {id:'xd_SLB', label:'SLB',color:'#60A5FA',unit:'lb',ox:55,  oy:-85},
+      {id:'xd_LCB', label:'CB', color:'#FFE033',unit:'db',ox:-185,oy:-28},
+      {id:'xd_RCB', label:'CB', color:'#FFE033',unit:'db',ox:185, oy:-28},
+      {id:'xd_SS',  label:'SS', color:'#C084FC',unit:'db',ox:60,  oy:-145},
+      {id:'xd_FS',  label:'FS', color:'#C084FC',unit:'db',ox:-20, oy:-165},
+    ]
+  },
+  '3-4': {
+    label:'3-4 Defense',
+    players:[
+      {id:'xd_LDE', label:'DE', color:'#F87171',unit:'dl',ox:-65, oy:-28},
+      {id:'xd_NT',  label:'NT', color:'#F87171',unit:'dl',ox:0,   oy:-28},
+      {id:'xd_RDE', label:'DE', color:'#F87171',unit:'dl',ox:65,  oy:-28},
+      {id:'xd_LOLB',label:'OLB',color:'#60A5FA',unit:'lb',ox:-95, oy:-75},
+      {id:'xd_LILB',label:'ILB',color:'#60A5FA',unit:'lb',ox:-28, oy:-80},
+      {id:'xd_RILB',label:'ILB',color:'#60A5FA',unit:'lb',ox:28,  oy:-80},
+      {id:'xd_ROLB',label:'OLB',color:'#60A5FA',unit:'lb',ox:95,  oy:-75},
+      {id:'xd_LCB', label:'CB', color:'#FFE033',unit:'db',ox:-185,oy:-28},
+      {id:'xd_RCB', label:'CB', color:'#FFE033',unit:'db',ox:185, oy:-28},
+      {id:'xd_SS',  label:'SS', color:'#C084FC',unit:'db',ox:50,  oy:-145},
+      {id:'xd_FS',  label:'FS', color:'#C084FC',unit:'db',ox:-20, oy:-165},
+    ]
+  },
+  'nickel': {
+    label:'Nickel (4-2-5)',
+    players:[
+      {id:'xd_LDE', label:'DE', color:'#F87171',unit:'dl',ox:-85, oy:-28},
+      {id:'xd_LDT', label:'DT', color:'#F87171',unit:'dl',ox:-28, oy:-28},
+      {id:'xd_RDT', label:'DT', color:'#F87171',unit:'dl',ox:28,  oy:-28},
+      {id:'xd_RDE', label:'DE', color:'#F87171',unit:'dl',ox:85,  oy:-28},
+      {id:'xd_ILB1',label:'ILB',color:'#60A5FA',unit:'lb',ox:-25, oy:-82},
+      {id:'xd_ILB2',label:'ILB',color:'#60A5FA',unit:'lb',ox:25,  oy:-82},
+      {id:'xd_LCB', label:'CB', color:'#FFE033',unit:'db',ox:-185,oy:-28},
+      {id:'xd_RCB', label:'CB', color:'#FFE033',unit:'db',ox:185, oy:-28},
+      {id:'xd_NB',  label:'NB', color:'#FFE033',unit:'db',ox:-120,oy:-60},
+      {id:'xd_SS',  label:'SS', color:'#C084FC',unit:'db',ox:50,  oy:-140},
+      {id:'xd_FS',  label:'FS', color:'#C084FC',unit:'db',ox:-20, oy:-160},
+    ]
+  },
+}
 
-const EXTRA_OFF = OFFENSE_BENCH.map((p,i)=>({...p,id:`xo_${p.label}_${i}`,cx:FIELD_W/2+(i-5)*35,cy:LOS_Y,isExtra:true}))
+// Offense formations (shown when defense adds mock offense)
+const OFF_FORMATIONS = {
+  'splitback': {
+    label:'Split Back',
+    players:[
+      {id:'xo_C',  label:'C', color:'#4ADE80',unit:'ol',  ox:0,    oy:0  },
+      {id:'xo_LG', label:'LG',color:'#4ADE80',unit:'ol',  ox:-32,  oy:0  },
+      {id:'xo_RG', label:'RG',color:'#4ADE80',unit:'ol',  ox:32,   oy:0  },
+      {id:'xo_LT', label:'LT',color:'#4ADE80',unit:'ol',  ox:-65,  oy:0  },
+      {id:'xo_RT', label:'RT',color:'#4ADE80',unit:'ol',  ox:65,   oy:0  },
+      {id:'xo_TE', label:'TE',color:'#4ADE80',unit:'ol',  ox:100,  oy:0  },
+      {id:'xo_QB', label:'QB',color:'#FFE033',unit:'skill',ox:0,    oy:55 },
+      {id:'xo_LHB',label:'HB',color:'#60A5FA',unit:'skill',ox:-35,  oy:105},
+      {id:'xo_RHB',label:'HB',color:'#60A5FA',unit:'skill',ox:35,   oy:105},
+      {id:'xo_WRL',label:'WR',color:'#F87171',unit:'skill',ox:-170, oy:0  },
+      {id:'xo_WRR',label:'WR',color:'#F87171',unit:'skill',ox:175,  oy:0  },
+    ]
+  },
+  'shotgun': {
+    label:'Shotgun Spread',
+    players:[
+      {id:'xo_C',  label:'C', color:'#4ADE80',unit:'ol',  ox:0,    oy:0  },
+      {id:'xo_LG', label:'LG',color:'#4ADE80',unit:'ol',  ox:-32,  oy:0  },
+      {id:'xo_RG', label:'RG',color:'#4ADE80',unit:'ol',  ox:32,   oy:0  },
+      {id:'xo_LT', label:'LT',color:'#4ADE80',unit:'ol',  ox:-65,  oy:0  },
+      {id:'xo_RT', label:'RT',color:'#4ADE80',unit:'ol',  ox:65,   oy:0  },
+      {id:'xo_QB', label:'QB',color:'#FFE033',unit:'skill',ox:0,    oy:110},
+      {id:'xo_RB', label:'RB',color:'#60A5FA',unit:'skill',ox:40,   oy:110},
+      {id:'xo_WRL',label:'WR',color:'#F87171',unit:'skill',ox:-175, oy:0  },
+      {id:'xo_WRR',label:'WR',color:'#F87171',unit:'skill',ox:175,  oy:0  },
+      {id:'xo_SLL',label:'SL',color:'#F87171',unit:'skill',ox:-110, oy:0  },
+      {id:'xo_SLR',label:'SL',color:'#F87171',unit:'skill',ox:110,  oy:0  },
+    ]
+  },
+  'iformation': {
+    label:'I Formation',
+    players:[
+      {id:'xo_C',  label:'C', color:'#4ADE80',unit:'ol',  ox:0,    oy:0  },
+      {id:'xo_LG', label:'LG',color:'#4ADE80',unit:'ol',  ox:-32,  oy:0  },
+      {id:'xo_RG', label:'RG',color:'#4ADE80',unit:'ol',  ox:32,   oy:0  },
+      {id:'xo_LT', label:'LT',color:'#4ADE80',unit:'ol',  ox:-65,  oy:0  },
+      {id:'xo_RT', label:'RT',color:'#4ADE80',unit:'ol',  ox:65,   oy:0  },
+      {id:'xo_TE', label:'TE',color:'#4ADE80',unit:'ol',  ox:100,  oy:0  },
+      {id:'xo_QB', label:'QB',color:'#FFE033',unit:'skill',ox:0,    oy:55 },
+      {id:'xo_FB', label:'FB',color:'#60A5FA',unit:'skill',ox:0,    oy:100},
+      {id:'xo_RB', label:'RB',color:'#60A5FA',unit:'skill',ox:0,    oy:145},
+      {id:'xo_WRL',label:'WR',color:'#F87171',unit:'skill',ox:-170, oy:0  },
+      {id:'xo_WRR',label:'WR',color:'#F87171',unit:'skill',ox:175,  oy:0  },
+    ]
+  },
+  'wishbone': {
+    label:'Wishbone',
+    players:[
+      {id:'xo_C',  label:'C', color:'#4ADE80',unit:'ol',  ox:0,    oy:0  },
+      {id:'xo_LG', label:'LG',color:'#4ADE80',unit:'ol',  ox:-32,  oy:0  },
+      {id:'xo_RG', label:'RG',color:'#4ADE80',unit:'ol',  ox:32,   oy:0  },
+      {id:'xo_LT', label:'LT',color:'#4ADE80',unit:'ol',  ox:-65,  oy:0  },
+      {id:'xo_RT', label:'RT',color:'#4ADE80',unit:'ol',  ox:65,   oy:0  },
+      {id:'xo_QB', label:'QB',color:'#FFE033',unit:'skill',ox:0,    oy:55 },
+      {id:'xo_FB', label:'FB',color:'#60A5FA',unit:'skill',ox:0,    oy:95 },
+      {id:'xo_LHB',label:'HB',color:'#60A5FA',unit:'skill',ox:-55,  oy:130},
+      {id:'xo_RHB',label:'HB',color:'#60A5FA',unit:'skill',ox:55,   oy:130},
+      {id:'xo_WRL',label:'WR',color:'#F87171',unit:'skill',ox:-170, oy:0  },
+      {id:'xo_WRR',label:'WR',color:'#F87171',unit:'skill',ox:175,  oy:0  },
+    ]
+  },
+  'trips': {
+    label:'Trips Right',
+    players:[
+      {id:'xo_C',  label:'C', color:'#4ADE80',unit:'ol',  ox:0,    oy:0  },
+      {id:'xo_LG', label:'LG',color:'#4ADE80',unit:'ol',  ox:-32,  oy:0  },
+      {id:'xo_RG', label:'RG',color:'#4ADE80',unit:'ol',  ox:32,   oy:0  },
+      {id:'xo_LT', label:'LT',color:'#4ADE80',unit:'ol',  ox:-65,  oy:0  },
+      {id:'xo_RT', label:'RT',color:'#4ADE80',unit:'ol',  ox:65,   oy:0  },
+      {id:'xo_QB', label:'QB',color:'#FFE033',unit:'skill',ox:0,    oy:110},
+      {id:'xo_RB', label:'RB',color:'#60A5FA',unit:'skill',ox:-30,  oy:110},
+      {id:'xo_WRL',label:'WR',color:'#F87171',unit:'skill',ox:-170, oy:0  },
+      {id:'xo_WR1',label:'WR',color:'#F87171',unit:'skill',ox:120,  oy:0  },
+      {id:'xo_WR2',label:'WR',color:'#F87171',unit:'skill',ox:155,  oy:15 },
+      {id:'xo_TE', label:'TE',color:'#4ADE80',unit:'ol',  ox:85,   oy:0  },
+    ]
+  },
+}
 
 const BLOCK_TYPES = [
   { id:'drive',   label:'Drive',       color:'#4ADE80',endCap:'T',    group:'off' },
@@ -382,6 +546,8 @@ export default function App() {
   const [showGaps,    setShowGaps]    = useState(false)
   const [showInfo,    setShowInfo]    = useState(false)
   const [hasExtra,    setHasExtra]    = useState(false)
+  const [defFormation,setDefFormation]= useState('5-3')
+  const [offFormation,setOffFormation]= useState('splitback')
 
   // Lineman Studio
   const [lsPlayers,   setLsPlayers]   = useState(()=>makeLSPlayers())
@@ -500,15 +666,18 @@ export default function App() {
   // ── Add/remove opponent ──────────────────────────────────────────────────
   const addExtra=()=>{
     const ex=players.map(p=>p.id)
+    const bx=FIELD_W/2, by=LOS_Y
     if(mode==='offense'){
-      // Place 5-3 defense aligned to the center of the field / LOS
-      const bx=FIELD_W/2, by=LOS_Y
-      const toAdd=EXTRA_DEF_53
+      const formation=DEF_FORMATIONS[defFormation]||DEF_FORMATIONS['5-3']
+      const toAdd=formation.players
         .filter(p=>!ex.includes(p.id))
-        .map(p=>({...p, cx:bx+p.ox, cy:by+p.oy}))
+        .map(p=>({...p,isExtra:true,cx:bx+p.ox,cy:by+p.oy}))
       setPlayers(prev=>[...prev,...toAdd])
     } else {
-      const toAdd=EXTRA_OFF.filter(p=>!ex.includes(p.id))
+      const formation=OFF_FORMATIONS[offFormation]||OFF_FORMATIONS['splitback']
+      const toAdd=formation.players
+        .filter(p=>!ex.includes(p.id))
+        .map(p=>({...p,isExtra:true,cx:bx+p.ox,cy:by+p.oy}))
       setPlayers(prev=>[...prev,...toAdd])
     }
     setHasExtra(true)
@@ -693,34 +862,63 @@ export default function App() {
   }
 
   // ── UI helpers ───────────────────────────────────────────────────────────
-  const SL=(txt)=><div style={{fontSize:9,color:'#4ade80',letterSpacing:1.5,marginBottom:4,marginTop:6,opacity:0.9}}>{txt}</div>
+  const SL=(txt)=><div style={{fontSize:9,color:'#ff9999',letterSpacing:1.5,marginBottom:4,marginTop:6,opacity:0.85,fontWeight:'bold'}}>{txt}</div>
   const BtnRow=(label,active,onClick,color='#FFE033')=>(
-    <button onClick={onClick} style={{padding:'4px 6px',borderRadius:4,border:`1px solid ${active?color:'#2d5a30'}`,background:active?`${color}22`:'transparent',color:active?color:'#a7f3a7',fontFamily:'monospace',fontSize:10,fontWeight:'bold',cursor:'pointer',width:'100%',marginBottom:2,textAlign:'left'}}>{label}</button>
+    <button onClick={onClick} style={{padding:'4px 6px',borderRadius:4,border:`1px solid ${active?color:'#3a1a1a'}`,background:active?`${color}22`:'rgba(0,0,0,0.2)',color:active?color:'#ccc',fontFamily:'monospace',fontSize:10,fontWeight:'bold',cursor:'pointer',width:'100%',marginBottom:2,textAlign:'left'}}>{label}</button>
   )
   const syncBadge=()=>{
-    const cfg={idle:{bg:'#1d4a20',color:'#4ade80',txt:'● Saved'},saving:{bg:'#2a3a00',color:'#FFE033',txt:'⟳ Saving…'},saved:{bg:'#0f3a1a',color:'#4ade80',txt:'✓ Saved'},error:{bg:'#3a0a0a',color:'#F87171',txt:'! Error'},loading:{bg:'#1a2a3a',color:'#60A5FA',txt:'⟳ Loading'}}[syncStatus]||{bg:'#1d4a20',color:'#4ade80',txt:'● Ready'}
+    const cfg={idle:{bg:'rgba(0,0,0,0.4)',color:'#99ff99',txt:'● Live'},saving:{bg:'rgba(0,0,0,0.4)',color:'#FFE033',txt:'⟳ Saving…'},saved:{bg:'rgba(0,80,0,0.4)',color:'#99ff99',txt:'✓ Saved'},error:{bg:'rgba(80,0,0,0.4)',color:'#ff9999',txt:'! Error'},loading:{bg:'rgba(0,0,80,0.4)',color:'#99aaff',txt:'⟳ Loading'}}[syncStatus]||{bg:'rgba(0,0,0,0.4)',color:'#99ff99',txt:'● Live'}
     return <div style={{fontSize:9,padding:'3px 8px',borderRadius:10,background:cfg.bg,color:cfg.color,fontFamily:'monospace'}}>{cfg.txt}</div>
   }
 
   // ─── Render ──────────────────────────────────────────────────────────────
   return (
-    <div style={{minHeight:'100vh',background:'#060e07',color:'#e8f5e9',fontFamily:"'Courier New',monospace",display:'flex',flexDirection:'column'}}>
+    <div style={{minHeight:'100vh',background:'linear-gradient(160deg,#110005 0%,#05050f 100%)',color:'#f0e8e8',fontFamily:"'Courier New',monospace",display:'flex',flexDirection:'column'}}>
 
       {/* Header */}
-      <header style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'7px 12px',background:'#0a1a0c',borderBottom:'2px solid #1d4a20',flexWrap:'wrap',gap:5}}>
-        <div style={{display:'flex',alignItems:'center',gap:7}}>
-          <span style={{fontSize:17,fontWeight:'bold',color:'#FFE033',letterSpacing:1}}>🏈 GRIDIRON STUDIO</span>
+      <header style={{
+        display:'flex',alignItems:'center',justifyContent:'space-between',
+        padding:'0 14px',background:'linear-gradient(135deg,#8B0000 0%,#cc0000 40%,#1a1a2e 100%)',
+        borderBottom:'3px solid #cc0000',flexWrap:'wrap',gap:5,minHeight:54,
+        boxShadow:'0 3px 16px rgba(0,0,0,0.6)',position:'relative',overflow:'hidden',
+      }}>
+        {/* decorative stripes */}
+        <div style={{position:'absolute',top:0,left:0,right:0,bottom:0,pointerEvents:'none',
+          background:'repeating-linear-gradient(90deg,transparent,transparent 60px,rgba(255,255,255,0.03) 60px,rgba(255,255,255,0.03) 61px)'}}/>
+        <div style={{display:'flex',alignItems:'center',gap:10,position:'relative'}}>
+          {/* helmet icon */}
+          <div style={{fontSize:28,lineHeight:1}}>🏈</div>
+          <div>
+            <div style={{fontSize:18,fontWeight:'900',color:'#ffffff',letterSpacing:2,
+              textShadow:'0 0 20px rgba(255,50,50,0.6)',fontFamily:"'Courier New',monospace",lineHeight:1}}>
+              BIXBY RED FOOTBALL
+            </div>
+            <div style={{fontSize:9,color:'rgba(255,255,255,0.55)',letterSpacing:3,fontFamily:'monospace'}}>
+              GRIDIRON STUDIO
+            </div>
+          </div>
           {syncBadge()}
         </div>
-        <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+        <div style={{display:'flex',gap:4,flexWrap:'wrap',position:'relative'}}>
           {[['designer','🎯 Designer'],['lineman','🔲 Lineman'],['board','✏️ Board'],['plays','📋 Playbook']].map(([t,lbl])=>(
-            <button key={t} onClick={()=>setTab(t)} style={{padding:'4px 9px',borderRadius:4,border:'1px solid',borderColor:tab===t?'#FFE033':'#2d5a30',background:tab===t?'#FFE033':'transparent',color:tab===t?'#060e07':'#a7f3a7',fontFamily:'monospace',fontWeight:'bold',fontSize:10,cursor:'pointer'}}>{lbl}</button>
+            <button key={t} onClick={()=>setTab(t)} style={{
+              padding:'5px 11px',borderRadius:4,border:'1px solid',
+              borderColor:tab===t?'#ffffff':'rgba(255,255,255,0.25)',
+              background:tab===t?'rgba(255,255,255,0.15)':'rgba(0,0,0,0.2)',
+              color:'#ffffff',fontFamily:'monospace',fontWeight:'bold',fontSize:10,
+              cursor:'pointer',letterSpacing:0.5,backdropFilter:'blur(4px)',
+              boxShadow:tab===t?'0 0 10px rgba(255,100,100,0.4)':'none',
+            }}>{lbl}</button>
           ))}
         </div>
-        <div style={{display:'flex',gap:5,alignItems:'center'}}>
-          <span style={{fontSize:9,color:'#4ade80',opacity:0.7}}>👤</span>
-          <input value={authorName} onChange={e=>setAuthorName(e.target.value)} placeholder="Your name" style={{width:85,padding:'3px 6px',background:'#0d2b10',border:'1px solid #2d5a30',borderRadius:4,color:'#e8f5e9',fontFamily:'monospace',fontSize:10}}/>
-          <button onClick={()=>setShowInfo(!showInfo)} style={{background:'none',border:'1px solid #2d5a30',color:'#a7f3a7',borderRadius:4,padding:'3px 7px',cursor:'pointer',fontSize:10}}>?</button>
+        <div style={{display:'flex',gap:5,alignItems:'center',position:'relative'}}>
+          <span style={{fontSize:9,color:'rgba(255,255,255,0.6)'}}>👤</span>
+          <input value={authorName} onChange={e=>setAuthorName(e.target.value)} placeholder="Your name"
+            style={{width:85,padding:'3px 6px',background:'rgba(0,0,0,0.3)',border:'1px solid rgba(255,255,255,0.2)',
+              borderRadius:4,color:'#fff',fontFamily:'monospace',fontSize:10}}/>
+          <button onClick={()=>setShowInfo(!showInfo)}
+            style={{background:'rgba(0,0,0,0.3)',border:'1px solid rgba(255,255,255,0.2)',color:'#fff',
+              borderRadius:4,padding:'3px 8px',cursor:'pointer',fontSize:10}}>?</button>
         </div>
       </header>
 
@@ -749,18 +947,22 @@ export default function App() {
         <div style={{display:'flex',flex:1,overflow:'hidden'}}>
 
           {/* Sidebar */}
-          <div style={{width:185,background:'#080f09',borderRight:'1px solid #1d4a20',padding:'9px 8px',display:'flex',flexDirection:'column',gap:5,overflowY:'auto'}}>
+          <div style={{width:185,background:'linear-gradient(180deg,#1a0505 0%,#0d0a1a 100%)',borderRight:'2px solid #6b0000',padding:'9px 8px',display:'flex',flexDirection:'column',gap:5,overflowY:'auto'}}>
             {SL('SIDE')}
             <div style={{display:'flex',gap:3}}>
               {['offense','defense'].map(m=>(
-                <button key={m} onClick={()=>switchMode(m)} style={{flex:1,padding:'4px 0',borderRadius:4,border:'1px solid',borderColor:mode===m?(m==='offense'?'#4ADE80':'#F87171'):'#2d5a30',background:mode===m?(m==='offense'?'rgba(74,222,128,0.12)':'rgba(248,113,113,0.12)'):'transparent',color:mode===m?(m==='offense'?'#4ADE80':'#F87171'):'#a7f3a7',fontFamily:'monospace',fontSize:10,fontWeight:'bold',cursor:'pointer',textTransform:'uppercase'}}>{m==='offense'?'OFF':'DEF'}</button>
+                <button key={m} onClick={()=>switchMode(m)} style={{flex:1,padding:'4px 0',borderRadius:4,border:'1px solid',
+                  borderColor:mode===m?(m==='offense'?'#4ADE80':'#F87171'):'#3a1a1a',
+                  background:mode===m?(m==='offense'?'rgba(74,222,128,0.15)':'rgba(204,0,0,0.2)'):'rgba(0,0,0,0.2)',
+                  color:mode===m?(m==='offense'?'#4ADE80':'#ff6666'):'#ccc',
+                  fontFamily:'monospace',fontSize:10,fontWeight:'bold',cursor:'pointer',textTransform:'uppercase'}}>{m==='offense'?'OFF':'DEF'}</button>
               ))}
             </div>
 
             {SL('TOOL')}
             <div style={{display:'flex',gap:3}}>
               {[['move','✋'],['route','✏️'],['block','🔲']].map(([t,ic])=>(
-                <button key={t} onClick={()=>setTool(t)} title={t} style={{flex:1,padding:'5px 0',borderRadius:4,border:'1px solid',borderColor:tool===t?'#FFE033':'#2d5a30',background:tool===t?'rgba(255,224,51,0.1)':'transparent',color:tool===t?'#FFE033':'#a7f3a7',fontFamily:'monospace',fontSize:14,cursor:'pointer'}}>{ic}</button>
+                <button key={t} onClick={()=>setTool(t)} title={t} style={{flex:1,padding:'5px 0',borderRadius:4,border:'1px solid',borderColor:tool===t?'#FFE033':'#3a1a1a',background:tool===t?'rgba(255,224,51,0.15)':'rgba(0,0,0,0.2)',color:tool===t?'#FFE033':'#ccc',fontFamily:'monospace',fontSize:14,cursor:'pointer'}}>{ic}</button>
               ))}
             </div>
 
@@ -771,14 +973,14 @@ export default function App() {
                 {SL('END CAP')}
                 <div style={{display:'flex',gap:3}}>
                   {[['arrow','→'],['T','T'],['dot','●']].map(([c,lbl])=>(
-                    <button key={c} onClick={()=>setEndCap(c)} style={{flex:1,padding:'4px 0',borderRadius:4,border:'1px solid',borderColor:endCap===c?'#FFE033':'#2d5a30',background:endCap===c?'rgba(255,224,51,0.1)':'transparent',color:endCap===c?'#FFE033':'#a7f3a7',fontFamily:'monospace',fontSize:13,cursor:'pointer'}}>{lbl}</button>
+                    <button key={c} onClick={()=>setEndCap(c)} style={{flex:1,padding:'4px 0',borderRadius:4,border:'1px solid',borderColor:endCap===c?'#FFE033':'#3a1a1a',background:endCap===c?'rgba(255,224,51,0.15)':'rgba(0,0,0,0.2)',color:endCap===c?'#FFE033':'#ccc',fontFamily:'monospace',fontSize:13,cursor:'pointer'}}>{lbl}</button>
                   ))}
                 </div>
                 {SL('LINE MODE')}
-                <button onClick={()=>{setStraightMode(!straightMode);setWaypointActive(false);setWaypointPts([]);setPreviewPt(null);setDrawingFor(null)}} style={{padding:'4px 6px',borderRadius:4,border:`1px solid ${straightMode?'#FFE033':'#2d5a30'}`,background:straightMode?'rgba(255,224,51,0.1)':'transparent',color:straightMode?'#FFE033':'#a7f3a7',fontFamily:'monospace',fontSize:10,cursor:'pointer',width:'100%',textAlign:'left'}}>
+                <button onClick={()=>{setStraightMode(!straightMode);setWaypointActive(false);setWaypointPts([]);setPreviewPt(null);setDrawingFor(null)}} style={{padding:'4px 6px',borderRadius:4,border:`1px solid ${straightMode?'#FFE033':'#3a1a1a'}`,background:straightMode?'rgba(255,224,51,0.15)':'rgba(0,0,0,0.2)',color:straightMode?'#FFE033':'#ccc',fontFamily:'monospace',fontSize:10,cursor:'pointer',width:'100%',textAlign:'left'}}>
                   {straightMode?'✓ Multi-Segment (click)':'~ Freehand (drag)'}
                 </button>
-                {straightMode&&<div style={{fontSize:9,color:'#4ade80',opacity:0.65,lineHeight:1.5,padding:'2px 0'}}>Click player → click to add points → double-click or Enter to finish · Esc cancels</div>}
+                {straightMode&&<div style={{fontSize:9,color:'#ff9999',opacity:0.8,lineHeight:1.5,padding:'2px 0'}}>Click to place points → double-click or Enter to finish · Esc cancels</div>}
               </>}
               {tool==='block'&&<>
                 {SL('BLOCK TYPE')}
@@ -789,17 +991,35 @@ export default function App() {
             {/* Position bench */}
             <BenchPanel mode={mode} onAdd={addFromBench}/>
 
-            {SL('OPPONENT')}
-            {!hasExtra
-              ?<button onClick={addExtra} style={{padding:'4px 6px',borderRadius:4,border:'1px dashed #444',background:'rgba(255,255,255,0.03)',color:'#888',fontFamily:'monospace',fontSize:10,cursor:'pointer',textAlign:'left'}}>+ Add {mode==='offense'?'Defense':'Offense'}</button>
-              :<button onClick={removeExtra} style={{padding:'4px 6px',borderRadius:4,border:'1px solid #b91c1c',background:'rgba(185,28,28,0.1)',color:'#F87171',fontFamily:'monospace',fontSize:10,cursor:'pointer'}}>✕ Remove Added</button>
-            }
+            {SL('ADD OPPONENT')}
+            {!hasExtra ? (
+              <div style={{display:'flex',flexDirection:'column',gap:3}}>
+                <select
+                  value={mode==='offense'?defFormation:offFormation}
+                  onChange={e=>mode==='offense'?setDefFormation(e.target.value):setOffFormation(e.target.value)}
+                  style={{padding:'4px 5px',borderRadius:4,border:'1px solid #3a1a1a',background:'rgba(0,0,0,0.4)',
+                    color:'#ccc',fontFamily:'monospace',fontSize:9,cursor:'pointer',width:'100%'}}>
+                  {mode==='offense'
+                    ? Object.entries(DEF_FORMATIONS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)
+                    : Object.entries(OFF_FORMATIONS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)
+                  }
+                </select>
+                <button onClick={addExtra} style={{padding:'5px 6px',borderRadius:4,
+                  background:'linear-gradient(135deg,#6b0000,#cc0000)',
+                  border:'1px solid #ff4444',color:'#fff',
+                  fontFamily:'monospace',fontSize:10,fontWeight:'bold',cursor:'pointer'}}>
+                  + Add {mode==='offense'?'Defense':'Offense'}
+                </button>
+              </div>
+            ) : (
+              <button onClick={removeExtra} style={{padding:'4px 6px',borderRadius:4,border:'1px solid #cc0000',background:'rgba(204,0,0,0.15)',color:'#ff6666',fontFamily:'monospace',fontSize:10,cursor:'pointer'}}>✕ Remove Added</button>
+            )}
 
             {SL('OPTIONS')}
-            <button onClick={()=>setShowGaps(!showGaps)} style={{padding:'3px 6px',borderRadius:4,border:`1px solid ${showGaps?'#FFE033':'#2d5a30'}`,background:showGaps?'rgba(255,224,51,0.08)':'transparent',color:showGaps?'#FFE033':'#a7f3a7',fontFamily:'monospace',fontSize:10,cursor:'pointer'}}>{showGaps?'✓ ':''}Gap Labels</button>
+            <button onClick={()=>setShowGaps(!showGaps)} style={{padding:'3px 6px',borderRadius:4,border:`1px solid ${showGaps?'#FFE033':'#3a1a1a'}`,background:showGaps?'rgba(255,224,51,0.1)':'rgba(0,0,0,0.2)',color:showGaps?'#FFE033':'#ccc',fontFamily:'monospace',fontSize:10,cursor:'pointer'}}>{showGaps?'✓ ':''}Gap Labels</button>
 
             {/* Actions */}
-            <div style={{marginTop:'auto',display:'flex',flexDirection:'column',gap:3,paddingTop:8,borderTop:'1px solid #1d4a20'}}>
+            <div style={{marginTop:'auto',display:'flex',flexDirection:'column',gap:3,paddingTop:8,borderTop:'1px solid #4a0a0a'}}>
               <button onClick={startAnim} style={{padding:'6px 0',borderRadius:4,border:'none',background:animating?'#b91c1c':'#FFE033',color:'#060e07',fontFamily:'monospace',fontWeight:'bold',fontSize:12,cursor:'pointer'}}>{animating?'■ Stop':'▶ Play'}</button>
               <div style={{display:'flex',gap:3}}>
                 <button onClick={undoRoute} disabled={routeHistory.length===0} style={{flex:1,padding:'4px 0',borderRadius:4,border:'1px solid #2d5a30',background:'transparent',color:routeHistory.length===0?'#333':'#a7f3a7',fontFamily:'monospace',fontSize:10,cursor:routeHistory.length===0?'default':'pointer'}}>↩ Undo</button>
@@ -808,12 +1028,12 @@ export default function App() {
               {selected&&<button onClick={removeSelected} style={{padding:'4px 0',borderRadius:4,border:'1px solid #b91c1c',background:'rgba(185,28,28,0.08)',color:'#F87171',fontFamily:'monospace',fontSize:10,cursor:'pointer'}}>✕ Delete Selected</button>}
               <button onClick={()=>{switchMode(mode)}} style={{padding:'4px 0',borderRadius:4,border:'1px solid #2d5a30',background:'transparent',color:'#a7f3a7',fontFamily:'monospace',fontSize:10,cursor:'pointer'}}>Reset Field</button>
               <input value={playName} onChange={e=>setPlayName(e.target.value)} placeholder="Play name…" style={{padding:'4px 6px',background:'#0d2b10',border:'1px solid #2d5a30',borderRadius:4,color:'#e8f5e9',fontFamily:'monospace',fontSize:10,width:'100%',boxSizing:'border-box'}}/>
-              <button onClick={()=>doSave('designer')} disabled={syncStatus==='saving'} style={{padding:'5px 0',borderRadius:4,border:'1px solid #4ade80',background:'rgba(74,222,128,0.08)',color:'#4ade80',fontFamily:'monospace',fontSize:10,cursor:'pointer',opacity:syncStatus==='saving'?0.5:1}}>{syncStatus==='saving'?'⟳ Saving…':'💾 Save Play'}</button>
+              <button onClick={()=>doSave('designer')} disabled={syncStatus==='saving'} style={{padding:'5px 0',borderRadius:4,border:'1px solid #cc3333',background:'linear-gradient(135deg,rgba(139,0,0,0.4),rgba(204,0,0,0.3))',color:'#ff9999',fontFamily:'monospace',fontSize:10,cursor:'pointer',opacity:syncStatus==='saving'?0.5:1}}>{syncStatus==='saving'?'⟳ Saving…':'💾 Save Play'}</button>
             </div>
           </div>
 
           {/* Field — vertical with zoom */}
-          <div style={{flex:1,position:'relative',overflow:'hidden',background:'#060e07'}}>
+          <div style={{flex:1,position:'relative',overflow:'hidden',background:'linear-gradient(135deg,#0d0005 0%,#05050d 100%)'}}>
             {/* Zoom controls */}
             <div style={{position:'absolute',bottom:14,right:14,zIndex:10,display:'flex',flexDirection:'column',gap:4,alignItems:'center'}}>
               <button onClick={zoomIn} title="Zoom In" style={{width:34,height:34,borderRadius:6,border:'1px solid #2d5a30',background:'rgba(10,26,12,0.92)',color:'#FFE033',fontSize:20,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(4px)'}}>+</button>
@@ -1023,7 +1243,7 @@ export default function App() {
       {tab==='plays'&&(
         <div style={{flex:1,padding:'14px 16px',overflowY:'auto'}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12,flexWrap:'wrap',gap:8}}>
-            <div style={{fontSize:13,color:'#4ade80',letterSpacing:1}}>📋 PLAYBOOK ({plays.length})</div>
+            <div style={{fontSize:13,color:'#ff8888',letterSpacing:1}}>📋 PLAYBOOK ({plays.length})</div>
             <button onClick={()=>load()} style={{padding:'3px 9px',borderRadius:4,border:'1px solid #2d5a30',background:'transparent',color:'#a7f3a7',fontFamily:'monospace',fontSize:10,cursor:'pointer'}}>⟳ Refresh</button>
           </div>
           {plays.length===0&&<div style={{textAlign:'center',color:'rgba(255,255,255,0.18)',fontSize:13,padding:'60px 0',fontFamily:'monospace'}}>No plays saved yet.<br/>Design a play and hit 💾 Save Play.</div>}
