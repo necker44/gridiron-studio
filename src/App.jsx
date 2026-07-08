@@ -44,52 +44,52 @@ const DEFENSE_BENCH = [
 function makeOffense() {
   const cx = FIELD_W / 2, cy = LOS_Y
   return [
-    { id:'C',   label:'C',   cx, cy, color:'#4ADE80', unit:'ol'    },
-    { id:'LG',  label:'LG',  cx:cx-32,  cy, color:'#4ADE80', unit:'ol'    },
-    { id:'RG',  label:'RG',  cx:cx+32,  cy, color:'#4ADE80', unit:'ol'    },
-    { id:'LT',  label:'LT',  cx:cx-65,  cy, color:'#4ADE80', unit:'ol'    },
-    { id:'RT',  label:'RT',  cx:cx+65,  cy, color:'#4ADE80', unit:'ol'    },
-    { id:'TE',  label:'TE',  cx:cx+100, cy, color:'#4ADE80', unit:'ol'    },
-    { id:'QB',  label:'QB',  cx, cy:cy+55,  color:'#FFE033', unit:'skill' },
-    { id:'RB',  label:'RB',  cx:cx+20,  cy:cy+100, color:'#60A5FA', unit:'skill' },
-    { id:'WR1', label:'WR',  cx:cx-170, cy, color:'#F87171', unit:'skill' },
-    { id:'WR2', label:'WR',  cx:cx+175, cy:cy+5,   color:'#F87171', unit:'skill' },
-    { id:'SL',  label:'SL',  cx:cx-110, cy:cy+40,  color:'#F87171', unit:'skill' },
+    { id:'C',   label:'C',   cx,         cy,        color:'#4ADE80', unit:'ol'    },
+    { id:'LG',  label:'LG',  cx:cx-38,   cy,        color:'#4ADE80', unit:'ol'    },
+    { id:'RG',  label:'RG',  cx:cx+38,   cy,        color:'#4ADE80', unit:'ol'    },
+    { id:'LT',  label:'LT',  cx:cx-76,   cy,        color:'#4ADE80', unit:'ol'    },
+    { id:'RT',  label:'RT',  cx:cx+76,   cy,        color:'#4ADE80', unit:'ol'    },
+    { id:'TE',  label:'TE',  cx:cx+116,  cy,        color:'#4ADE80', unit:'ol'    },
+    { id:'QB',  label:'QB',  cx,         cy:cy+60,  color:'#FFE033', unit:'skill' },
+    { id:'RB',  label:'RB',  cx:cx+25,   cy:cy+110, color:'#60A5FA', unit:'skill' },
+    { id:'WR1', label:'WR',  cx:cx-190,  cy,        color:'#F87171', unit:'skill' },
+    { id:'WR2', label:'WR',  cx:cx+195,  cy:cy+5,   color:'#F87171', unit:'skill' },
+    { id:'SL',  label:'SL',  cx:cx-125,  cy:cy+40,  color:'#F87171', unit:'skill' },
   ]
 }
 function makeDefense() {
   const cx = FIELD_W / 2, cy = LOS_Y
   return [
-    { id:'DE1', label:'DE',  cx:cx-75,  cy:cy-25,  color:'#F87171', unit:'dl' },
-    { id:'DT1', label:'DT',  cx:cx-25,  cy:cy-25,  color:'#F87171', unit:'dl' },
-    { id:'DT2', label:'DT',  cx:cx+25,  cy:cy-25,  color:'#F87171', unit:'dl' },
-    { id:'DE2', label:'DE',  cx:cx+75,  cy:cy-25,  color:'#F87171', unit:'dl' },
-    { id:'MLB', label:'MLB', cx,        cy:cy-80,  color:'#60A5FA', unit:'lb' },
-    { id:'WLB', label:'WLB', cx:cx-65,  cy:cy-80,  color:'#60A5FA', unit:'lb' },
-    { id:'SLB', label:'SLB', cx:cx+65,  cy:cy-80,  color:'#60A5FA', unit:'lb' },
-    { id:'CB1', label:'CB',  cx:cx-175, cy:cy-25,  color:'#FFE033', unit:'db' },
-    { id:'CB2', label:'CB',  cx:cx+175, cy:cy-25,  color:'#FFE033', unit:'db' },
-    { id:'SS',  label:'SS',  cx:cx+90,  cy:cy-145, color:'#C084FC', unit:'db' },
-    { id:'FS',  label:'FS',  cx:cx-35,  cy:cy-165, color:'#C084FC', unit:'db' },
+    { id:'DE1', label:'DE',  cx:cx-90,   cy:cy-30,  color:'#F87171', unit:'dl' },
+    { id:'DT1', label:'DT',  cx:cx-32,   cy:cy-30,  color:'#F87171', unit:'dl' },
+    { id:'DT2', label:'DT',  cx:cx+32,   cy:cy-30,  color:'#F87171', unit:'dl' },
+    { id:'DE2', label:'DE',  cx:cx+90,   cy:cy-30,  color:'#F87171', unit:'dl' },
+    { id:'MLB', label:'MLB', cx,         cy:cy-90,  color:'#60A5FA', unit:'lb' },
+    { id:'WLB', label:'WLB', cx:cx-75,   cy:cy-90,  color:'#60A5FA', unit:'lb' },
+    { id:'SLB', label:'SLB', cx:cx+75,   cy:cy-90,  color:'#60A5FA', unit:'lb' },
+    { id:'CB1', label:'CB',  cx:cx-195,  cy:cy-30,  color:'#FFE033', unit:'db' },
+    { id:'CB2', label:'CB',  cx:cx+195,  cy:cy-30,  color:'#FFE033', unit:'db' },
+    { id:'SS',  label:'SS',  cx:cx+100,  cy:cy-155, color:'#C084FC', unit:'db' },
+    { id:'FS',  label:'FS',  cx:cx-40,   cy:cy-178, color:'#C084FC', unit:'db' },
   ]
 }
 function makeLSPlayers() {
   const cx = FIELD_W / 2, cy = LOS_Y
   return [
-    { id:'ls_LT', label:'LT',  cx:cx-65, cy, color:'#4ADE80',unit:'ol',side:'off' },
-    { id:'ls_LG', label:'LG',  cx:cx-32, cy, color:'#4ADE80',unit:'ol',side:'off' },
-    { id:'ls_C',  label:'C',   cx,       cy, color:'#4ADE80',unit:'ol',side:'off' },
-    { id:'ls_RG', label:'RG',  cx:cx+32, cy, color:'#4ADE80',unit:'ol',side:'off' },
-    { id:'ls_RT', label:'RT',  cx:cx+65, cy, color:'#4ADE80',unit:'ol',side:'off' },
-    { id:'ls_TE', label:'TE',  cx:cx+100,cy, color:'#4ADE80',unit:'ol',side:'off' },
-    { id:'ls_FB', label:'FB',  cx,       cy:cy+60, color:'#60A5FA',unit:'skill',side:'off' },
-    { id:'ls_DE1',label:'DE',  cx:cx-80, cy:cy-30, color:'#F87171',unit:'dl',side:'def' },
-    { id:'ls_DT1',label:'DT',  cx:cx-27, cy:cy-30, color:'#F87171',unit:'dl',side:'def' },
-    { id:'ls_DT2',label:'DT',  cx:cx+27, cy:cy-30, color:'#F87171',unit:'dl',side:'def' },
-    { id:'ls_DE2',label:'DE',  cx:cx+80, cy:cy-30, color:'#F87171',unit:'dl',side:'def' },
-    { id:'ls_MLB',label:'MLB', cx,       cy:cy-90, color:'#60A5FA',unit:'lb',side:'def' },
-    { id:'ls_WLB',label:'WLB', cx:cx-60, cy:cy-90, color:'#60A5FA',unit:'lb',side:'def' },
-    { id:'ls_SLB',label:'SLB', cx:cx+60, cy:cy-90, color:'#60A5FA',unit:'lb',side:'def' },
+    { id:'ls_LT', label:'LT',  cx:cx-76,  cy,        color:'#4ADE80',unit:'ol', side:'off' },
+    { id:'ls_LG', label:'LG',  cx:cx-38,  cy,        color:'#4ADE80',unit:'ol', side:'off' },
+    { id:'ls_C',  label:'C',   cx,        cy,        color:'#4ADE80',unit:'ol', side:'off' },
+    { id:'ls_RG', label:'RG',  cx:cx+38,  cy,        color:'#4ADE80',unit:'ol', side:'off' },
+    { id:'ls_RT', label:'RT',  cx:cx+76,  cy,        color:'#4ADE80',unit:'ol', side:'off' },
+    { id:'ls_TE', label:'TE',  cx:cx+116, cy,        color:'#4ADE80',unit:'ol', side:'off' },
+    { id:'ls_FB', label:'FB',  cx,        cy:cy+65,  color:'#60A5FA',unit:'skill',side:'off' },
+    { id:'ls_DE1',label:'DE',  cx:cx-95,  cy:cy-34,  color:'#F87171',unit:'dl', side:'def' },
+    { id:'ls_DT1',label:'DT',  cx:cx-34,  cy:cy-34,  color:'#F87171',unit:'dl', side:'def' },
+    { id:'ls_DT2',label:'DT',  cx:cx+34,  cy:cy-34,  color:'#F87171',unit:'dl', side:'def' },
+    { id:'ls_DE2',label:'DE',  cx:cx+95,  cy:cy-34,  color:'#F87171',unit:'dl', side:'def' },
+    { id:'ls_MLB',label:'MLB', cx,        cy:cy-100, color:'#60A5FA',unit:'lb', side:'def' },
+    { id:'ls_WLB',label:'WLB', cx:cx-70,  cy:cy-100, color:'#60A5FA',unit:'lb', side:'def' },
+    { id:'ls_SLB',label:'SLB', cx:cx+70,  cy:cy-100, color:'#60A5FA',unit:'lb', side:'def' },
   ]
 }
 
@@ -99,14 +99,14 @@ const DEF_FORMATIONS = {
   '5-3': {
     label:'5-3 Defense',
     players:[
-      {id:'xd_LDE', label:'DE', color:'#F87171',unit:'dl',ox:-105,oy:-28},
-      {id:'xd_LDT', label:'DT', color:'#F87171',unit:'dl',ox:-38, oy:-28},
+      {id:'xd_LDE', label:'DE', color:'#F87171',unit:'dl',ox:-115,oy:-32},
+      {id:'xd_LDT', label:'DT', color:'#F87171',unit:'dl',ox:-42, oy:-32},
       {id:'xd_NT',  label:'NT', color:'#F87171',unit:'dl',ox:0,   oy:-28},
-      {id:'xd_RDT', label:'DT', color:'#F87171',unit:'dl',ox:38,  oy:-28},
-      {id:'xd_RDE', label:'DE', color:'#F87171',unit:'dl',ox:105, oy:-28},
-      {id:'xd_WLB', label:'WLB',color:'#60A5FA',unit:'lb',ox:-65, oy:-85},
+      {id:'xd_RDT', label:'DT', color:'#F87171',unit:'dl',ox:42,  oy:-32},
+      {id:'xd_RDE', label:'DE', color:'#F87171',unit:'dl',ox:115, oy:-32},
+      {id:'xd_WLB', label:'WLB',color:'#60A5FA',unit:'lb',ox:-75, oy:-92},
       {id:'xd_MLB', label:'MLB',color:'#60A5FA',unit:'lb',ox:0,   oy:-85},
-      {id:'xd_SLB', label:'SLB',color:'#60A5FA',unit:'lb',ox:65,  oy:-85},
+      {id:'xd_SLB', label:'SLB',color:'#60A5FA',unit:'lb',ox:75,  oy:-92},
       {id:'xd_LCB', label:'CB', color:'#FFE033',unit:'db',ox:-185,oy:-28},
       {id:'xd_RCB', label:'CB', color:'#FFE033',unit:'db',ox:185, oy:-28},
       {id:'xd_S',   label:'S',  color:'#C084FC',unit:'db',ox:0,   oy:-155},
@@ -115,13 +115,13 @@ const DEF_FORMATIONS = {
   '5-2': {
     label:'5-2 Defense',
     players:[
-      {id:'xd_LDE', label:'DE', color:'#F87171',unit:'dl',ox:-105,oy:-28},
-      {id:'xd_LDT', label:'DT', color:'#F87171',unit:'dl',ox:-38, oy:-28},
+      {id:'xd_LDE', label:'DE', color:'#F87171',unit:'dl',ox:-115,oy:-32},
+      {id:'xd_LDT', label:'DT', color:'#F87171',unit:'dl',ox:-42, oy:-32},
       {id:'xd_NT',  label:'NT', color:'#F87171',unit:'dl',ox:0,   oy:-28},
-      {id:'xd_RDT', label:'DT', color:'#F87171',unit:'dl',ox:38,  oy:-28},
-      {id:'xd_RDE', label:'DE', color:'#F87171',unit:'dl',ox:105, oy:-28},
-      {id:'xd_WLB', label:'WLB',color:'#60A5FA',unit:'lb',ox:-45, oy:-85},
-      {id:'xd_SLB', label:'SLB',color:'#60A5FA',unit:'lb',ox:45,  oy:-85},
+      {id:'xd_RDT', label:'DT', color:'#F87171',unit:'dl',ox:42,  oy:-32},
+      {id:'xd_RDE', label:'DE', color:'#F87171',unit:'dl',ox:115, oy:-32},
+      {id:'xd_WLB', label:'WLB',color:'#60A5FA',unit:'lb',ox:-52, oy:-92},
+      {id:'xd_SLB', label:'SLB',color:'#60A5FA',unit:'lb',ox:52,  oy:-92},
       {id:'xd_LCB', label:'CB', color:'#FFE033',unit:'db',ox:-185,oy:-28},
       {id:'xd_RCB', label:'CB', color:'#FFE033',unit:'db',ox:185, oy:-28},
       {id:'xd_SS',  label:'SS', color:'#C084FC',unit:'db',ox:-50, oy:-145},
@@ -131,14 +131,14 @@ const DEF_FORMATIONS = {
   '4-4': {
     label:'4-4 Defense',
     players:[
-      {id:'xd_LDE', label:'DE', color:'#F87171',unit:'dl',ox:-85, oy:-28},
-      {id:'xd_LDT', label:'DT', color:'#F87171',unit:'dl',ox:-30, oy:-28},
-      {id:'xd_RDT', label:'DT', color:'#F87171',unit:'dl',ox:30,  oy:-28},
-      {id:'xd_RDE', label:'DE', color:'#F87171',unit:'dl',ox:85,  oy:-28},
-      {id:'xd_WLB', label:'WLB',color:'#60A5FA',unit:'lb',ox:-75, oy:-80},
-      {id:'xd_ILB1',label:'ILB',color:'#60A5FA',unit:'lb',ox:-20, oy:-80},
-      {id:'xd_ILB2',label:'ILB',color:'#60A5FA',unit:'lb',ox:20,  oy:-80},
-      {id:'xd_SLB', label:'SLB',color:'#60A5FA',unit:'lb',ox:75,  oy:-80},
+      {id:'xd_LDE', label:'DE', color:'#F87171',unit:'dl',ox:-95, oy:-32},
+      {id:'xd_LDT', label:'DT', color:'#F87171',unit:'dl',ox:-34, oy:-32},
+      {id:'xd_RDT', label:'DT', color:'#F87171',unit:'dl',ox:34,  oy:-32},
+      {id:'xd_RDE', label:'DE', color:'#F87171',unit:'dl',ox:95,  oy:-32},
+      {id:'xd_WLB', label:'WLB',color:'#60A5FA',unit:'lb',ox:-82, oy:-88},
+      {id:'xd_ILB1',label:'ILB',color:'#60A5FA',unit:'lb',ox:-24, oy:-88},
+      {id:'xd_ILB2',label:'ILB',color:'#60A5FA',unit:'lb',ox:24,  oy:-88},
+      {id:'xd_SLB', label:'SLB',color:'#60A5FA',unit:'lb',ox:82,  oy:-88},
       {id:'xd_LCB', label:'CB', color:'#FFE033',unit:'db',ox:-175,oy:-28},
       {id:'xd_RCB', label:'CB', color:'#FFE033',unit:'db',ox:175, oy:-28},
       {id:'xd_S',   label:'S',  color:'#C084FC',unit:'db',ox:0,   oy:-150},
@@ -147,13 +147,13 @@ const DEF_FORMATIONS = {
   '4-3': {
     label:'4-3 Defense',
     players:[
-      {id:'xd_LDE', label:'DE', color:'#F87171',unit:'dl',ox:-85, oy:-28},
-      {id:'xd_LDT', label:'DT', color:'#F87171',unit:'dl',ox:-30, oy:-28},
-      {id:'xd_RDT', label:'DT', color:'#F87171',unit:'dl',ox:30,  oy:-28},
-      {id:'xd_RDE', label:'DE', color:'#F87171',unit:'dl',ox:85,  oy:-28},
-      {id:'xd_WLB', label:'WLB',color:'#60A5FA',unit:'lb',ox:-55, oy:-85},
+      {id:'xd_LDE', label:'DE', color:'#F87171',unit:'dl',ox:-95, oy:-32},
+      {id:'xd_LDT', label:'DT', color:'#F87171',unit:'dl',ox:-34, oy:-32},
+      {id:'xd_RDT', label:'DT', color:'#F87171',unit:'dl',ox:34,  oy:-32},
+      {id:'xd_RDE', label:'DE', color:'#F87171',unit:'dl',ox:95,  oy:-32},
+      {id:'xd_WLB', label:'WLB',color:'#60A5FA',unit:'lb',ox:-62, oy:-92},
       {id:'xd_MLB', label:'MLB',color:'#60A5FA',unit:'lb',ox:0,   oy:-85},
-      {id:'xd_SLB', label:'SLB',color:'#60A5FA',unit:'lb',ox:55,  oy:-85},
+      {id:'xd_SLB', label:'SLB',color:'#60A5FA',unit:'lb',ox:62,  oy:-92},
       {id:'xd_LCB', label:'CB', color:'#FFE033',unit:'db',ox:-185,oy:-28},
       {id:'xd_RCB', label:'CB', color:'#FFE033',unit:'db',ox:185, oy:-28},
       {id:'xd_SS',  label:'SS', color:'#C084FC',unit:'db',ox:60,  oy:-145},
@@ -163,13 +163,13 @@ const DEF_FORMATIONS = {
   '3-4': {
     label:'3-4 Defense',
     players:[
-      {id:'xd_LDE', label:'DE', color:'#F87171',unit:'dl',ox:-65, oy:-28},
+      {id:'xd_LDE', label:'DE', color:'#F87171',unit:'dl',ox:-75, oy:-32},
       {id:'xd_NT',  label:'NT', color:'#F87171',unit:'dl',ox:0,   oy:-28},
-      {id:'xd_RDE', label:'DE', color:'#F87171',unit:'dl',ox:65,  oy:-28},
-      {id:'xd_LOLB',label:'OLB',color:'#60A5FA',unit:'lb',ox:-95, oy:-75},
-      {id:'xd_LILB',label:'ILB',color:'#60A5FA',unit:'lb',ox:-28, oy:-80},
-      {id:'xd_RILB',label:'ILB',color:'#60A5FA',unit:'lb',ox:28,  oy:-80},
-      {id:'xd_ROLB',label:'OLB',color:'#60A5FA',unit:'lb',ox:95,  oy:-75},
+      {id:'xd_RDE', label:'DE', color:'#F87171',unit:'dl',ox:75,  oy:-32},
+      {id:'xd_LOLB',label:'OLB',color:'#60A5FA',unit:'lb',ox:-105,oy:-82},
+      {id:'xd_LILB',label:'ILB',color:'#60A5FA',unit:'lb',ox:-32, oy:-88},
+      {id:'xd_RILB',label:'ILB',color:'#60A5FA',unit:'lb',ox:32,  oy:-88},
+      {id:'xd_ROLB',label:'OLB',color:'#60A5FA',unit:'lb',ox:105, oy:-82},
       {id:'xd_LCB', label:'CB', color:'#FFE033',unit:'db',ox:-185,oy:-28},
       {id:'xd_RCB', label:'CB', color:'#FFE033',unit:'db',ox:185, oy:-28},
       {id:'xd_SS',  label:'SS', color:'#C084FC',unit:'db',ox:50,  oy:-145},
@@ -179,12 +179,12 @@ const DEF_FORMATIONS = {
   'nickel': {
     label:'Nickel (4-2-5)',
     players:[
-      {id:'xd_LDE', label:'DE', color:'#F87171',unit:'dl',ox:-85, oy:-28},
-      {id:'xd_LDT', label:'DT', color:'#F87171',unit:'dl',ox:-28, oy:-28},
-      {id:'xd_RDT', label:'DT', color:'#F87171',unit:'dl',ox:28,  oy:-28},
-      {id:'xd_RDE', label:'DE', color:'#F87171',unit:'dl',ox:85,  oy:-28},
-      {id:'xd_ILB1',label:'ILB',color:'#60A5FA',unit:'lb',ox:-25, oy:-82},
-      {id:'xd_ILB2',label:'ILB',color:'#60A5FA',unit:'lb',ox:25,  oy:-82},
+      {id:'xd_LDE', label:'DE', color:'#F87171',unit:'dl',ox:-95, oy:-32},
+      {id:'xd_LDT', label:'DT', color:'#F87171',unit:'dl',ox:-32, oy:-32},
+      {id:'xd_RDT', label:'DT', color:'#F87171',unit:'dl',ox:32,  oy:-32},
+      {id:'xd_RDE', label:'DE', color:'#F87171',unit:'dl',ox:95,  oy:-32},
+      {id:'xd_ILB1',label:'ILB',color:'#60A5FA',unit:'lb',ox:-28, oy:-90},
+      {id:'xd_ILB2',label:'ILB',color:'#60A5FA',unit:'lb',ox:28,  oy:-90},
       {id:'xd_LCB', label:'CB', color:'#FFE033',unit:'db',ox:-185,oy:-28},
       {id:'xd_RCB', label:'CB', color:'#FFE033',unit:'db',ox:185, oy:-28},
       {id:'xd_NB',  label:'NB', color:'#FFE033',unit:'db',ox:-120,oy:-60},
@@ -200,11 +200,11 @@ const OFF_FORMATIONS = {
     label:'Split Back',
     players:[
       {id:'xo_C',  label:'C', color:'#4ADE80',unit:'ol',  ox:0,    oy:0  },
-      {id:'xo_LG', label:'LG',color:'#4ADE80',unit:'ol',  ox:-32,  oy:0  },
-      {id:'xo_RG', label:'RG',color:'#4ADE80',unit:'ol',  ox:32,   oy:0  },
-      {id:'xo_LT', label:'LT',color:'#4ADE80',unit:'ol',  ox:-65,  oy:0  },
-      {id:'xo_RT', label:'RT',color:'#4ADE80',unit:'ol',  ox:65,   oy:0  },
-      {id:'xo_TE', label:'TE',color:'#4ADE80',unit:'ol',  ox:100,  oy:0  },
+      {id:'xo_LG', label:'LG',color:'#4ADE80',unit:'ol',  ox:-38,  oy:0  },
+      {id:'xo_RG', label:'RG',color:'#4ADE80',unit:'ol',  ox:38,   oy:0  },
+      {id:'xo_LT', label:'LT',color:'#4ADE80',unit:'ol',  ox:-76,  oy:0  },
+      {id:'xo_RT', label:'RT',color:'#4ADE80',unit:'ol',  ox:76,   oy:0  },
+      {id:'xo_TE', label:'TE',color:'#4ADE80',unit:'ol',  ox:116,  oy:0  },
       {id:'xo_QB', label:'QB',color:'#FFE033',unit:'skill',ox:0,    oy:55 },
       {id:'xo_LHB',label:'HB',color:'#60A5FA',unit:'skill',ox:-35,  oy:105},
       {id:'xo_RHB',label:'HB',color:'#60A5FA',unit:'skill',ox:35,   oy:105},
@@ -216,10 +216,10 @@ const OFF_FORMATIONS = {
     label:'Shotgun Spread',
     players:[
       {id:'xo_C',  label:'C', color:'#4ADE80',unit:'ol',  ox:0,    oy:0  },
-      {id:'xo_LG', label:'LG',color:'#4ADE80',unit:'ol',  ox:-32,  oy:0  },
-      {id:'xo_RG', label:'RG',color:'#4ADE80',unit:'ol',  ox:32,   oy:0  },
-      {id:'xo_LT', label:'LT',color:'#4ADE80',unit:'ol',  ox:-65,  oy:0  },
-      {id:'xo_RT', label:'RT',color:'#4ADE80',unit:'ol',  ox:65,   oy:0  },
+      {id:'xo_LG', label:'LG',color:'#4ADE80',unit:'ol',  ox:-38,  oy:0  },
+      {id:'xo_RG', label:'RG',color:'#4ADE80',unit:'ol',  ox:38,   oy:0  },
+      {id:'xo_LT', label:'LT',color:'#4ADE80',unit:'ol',  ox:-76,  oy:0  },
+      {id:'xo_RT', label:'RT',color:'#4ADE80',unit:'ol',  ox:76,   oy:0  },
       {id:'xo_QB', label:'QB',color:'#FFE033',unit:'skill',ox:0,    oy:110},
       {id:'xo_RB', label:'RB',color:'#60A5FA',unit:'skill',ox:40,   oy:110},
       {id:'xo_WRL',label:'WR',color:'#F87171',unit:'skill',ox:-175, oy:0  },
@@ -232,11 +232,11 @@ const OFF_FORMATIONS = {
     label:'I Formation',
     players:[
       {id:'xo_C',  label:'C', color:'#4ADE80',unit:'ol',  ox:0,    oy:0  },
-      {id:'xo_LG', label:'LG',color:'#4ADE80',unit:'ol',  ox:-32,  oy:0  },
-      {id:'xo_RG', label:'RG',color:'#4ADE80',unit:'ol',  ox:32,   oy:0  },
-      {id:'xo_LT', label:'LT',color:'#4ADE80',unit:'ol',  ox:-65,  oy:0  },
-      {id:'xo_RT', label:'RT',color:'#4ADE80',unit:'ol',  ox:65,   oy:0  },
-      {id:'xo_TE', label:'TE',color:'#4ADE80',unit:'ol',  ox:100,  oy:0  },
+      {id:'xo_LG', label:'LG',color:'#4ADE80',unit:'ol',  ox:-38,  oy:0  },
+      {id:'xo_RG', label:'RG',color:'#4ADE80',unit:'ol',  ox:38,   oy:0  },
+      {id:'xo_LT', label:'LT',color:'#4ADE80',unit:'ol',  ox:-76,  oy:0  },
+      {id:'xo_RT', label:'RT',color:'#4ADE80',unit:'ol',  ox:76,   oy:0  },
+      {id:'xo_TE', label:'TE',color:'#4ADE80',unit:'ol',  ox:116,  oy:0  },
       {id:'xo_QB', label:'QB',color:'#FFE033',unit:'skill',ox:0,    oy:55 },
       {id:'xo_FB', label:'FB',color:'#60A5FA',unit:'skill',ox:0,    oy:100},
       {id:'xo_RB', label:'RB',color:'#60A5FA',unit:'skill',ox:0,    oy:145},
@@ -248,10 +248,10 @@ const OFF_FORMATIONS = {
     label:'Wishbone',
     players:[
       {id:'xo_C',  label:'C', color:'#4ADE80',unit:'ol',  ox:0,    oy:0  },
-      {id:'xo_LG', label:'LG',color:'#4ADE80',unit:'ol',  ox:-32,  oy:0  },
-      {id:'xo_RG', label:'RG',color:'#4ADE80',unit:'ol',  ox:32,   oy:0  },
-      {id:'xo_LT', label:'LT',color:'#4ADE80',unit:'ol',  ox:-65,  oy:0  },
-      {id:'xo_RT', label:'RT',color:'#4ADE80',unit:'ol',  ox:65,   oy:0  },
+      {id:'xo_LG', label:'LG',color:'#4ADE80',unit:'ol',  ox:-38,  oy:0  },
+      {id:'xo_RG', label:'RG',color:'#4ADE80',unit:'ol',  ox:38,   oy:0  },
+      {id:'xo_LT', label:'LT',color:'#4ADE80',unit:'ol',  ox:-76,  oy:0  },
+      {id:'xo_RT', label:'RT',color:'#4ADE80',unit:'ol',  ox:76,   oy:0  },
       {id:'xo_QB', label:'QB',color:'#FFE033',unit:'skill',ox:0,    oy:55 },
       {id:'xo_FB', label:'FB',color:'#60A5FA',unit:'skill',ox:0,    oy:95 },
       {id:'xo_LHB',label:'HB',color:'#60A5FA',unit:'skill',ox:-55,  oy:130},
@@ -264,16 +264,16 @@ const OFF_FORMATIONS = {
     label:'Trips Right',
     players:[
       {id:'xo_C',  label:'C', color:'#4ADE80',unit:'ol',  ox:0,    oy:0  },
-      {id:'xo_LG', label:'LG',color:'#4ADE80',unit:'ol',  ox:-32,  oy:0  },
-      {id:'xo_RG', label:'RG',color:'#4ADE80',unit:'ol',  ox:32,   oy:0  },
-      {id:'xo_LT', label:'LT',color:'#4ADE80',unit:'ol',  ox:-65,  oy:0  },
-      {id:'xo_RT', label:'RT',color:'#4ADE80',unit:'ol',  ox:65,   oy:0  },
+      {id:'xo_LG', label:'LG',color:'#4ADE80',unit:'ol',  ox:-38,  oy:0  },
+      {id:'xo_RG', label:'RG',color:'#4ADE80',unit:'ol',  ox:38,   oy:0  },
+      {id:'xo_LT', label:'LT',color:'#4ADE80',unit:'ol',  ox:-76,  oy:0  },
+      {id:'xo_RT', label:'RT',color:'#4ADE80',unit:'ol',  ox:76,   oy:0  },
       {id:'xo_QB', label:'QB',color:'#FFE033',unit:'skill',ox:0,    oy:110},
       {id:'xo_RB', label:'RB',color:'#60A5FA',unit:'skill',ox:-30,  oy:110},
       {id:'xo_WRL',label:'WR',color:'#F87171',unit:'skill',ox:-170, oy:0  },
       {id:'xo_WR1',label:'WR',color:'#F87171',unit:'skill',ox:120,  oy:0  },
       {id:'xo_WR2',label:'WR',color:'#F87171',unit:'skill',ox:155,  oy:15 },
-      {id:'xo_TE', label:'TE',color:'#4ADE80',unit:'ol',  ox:85,   oy:0  },
+      {id:'xo_TE', label:'TE',color:'#4ADE80',unit:'ol',  ox:100,  oy:0  },
     ]
   },
 }
@@ -429,7 +429,7 @@ function PlayerIcon({p,selected,hasRoute,drawingActive,onPointerDown,cx:animCx,c
   const isLiner=p.unit==='ol'||p.unit==='dl'
   const cx=animCx!==undefined?animCx:p.cx
   const cy=animCy!==undefined?animCy:p.cy
-  const s=13,r=14
+  const s=10,r=11
   const glow=selected?'drop-shadow(0 0 7px #FFE033)':drawingActive?'drop-shadow(0 0 6px #fff)':'none'
   const sw=selected||hasRoute?2.5:1.5
   const fillHex=Math.round((p.isExtra?0.07:0.15)*255).toString(16).padStart(2,'0')
@@ -443,8 +443,8 @@ function PlayerIcon({p,selected,hasRoute,drawingActive,onPointerDown,cx:animCx,c
             fill={`${p.color}${fillHex}`} stroke={p.color} strokeWidth={sw}
             strokeDasharray={p.isExtra?'4,3':'none'} style={{filter:glow}}/>
       }
-      <text x={cx} y={cy+4} textAnchor="middle" fill={p.color}
-        fontSize={p.label.length>2?8:10} fontWeight="bold" fontFamily="monospace"
+      <text x={cx} y={cy+3} textAnchor="middle" fill={p.color}
+        fontSize={p.label.length>2?7:9} fontWeight="bold" fontFamily="monospace"
         style={{pointerEvents:'none'}}>{p.label}</text>
     </g>
   )
