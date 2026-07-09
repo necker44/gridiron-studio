@@ -96,6 +96,7 @@ function makeLSPlayers() {
 // ─── Extra formation definitions (relative offsets from FIELD_W/2, LOS_Y) ──
 // Defense formations
 const DEF_FORMATIONS = {
+  'base': { label:'Base 4-3 (default)' },
   '5-3': {
     label:'5-3 Defense',
     players:[
@@ -196,6 +197,7 @@ const DEF_FORMATIONS = {
 
 // Offense formations (shown when defense adds mock offense)
 const OFF_FORMATIONS = {
+  'base': { label:'Base Offense (default)' },
   'splitback': {
     label:'Split Back',
     players:[
@@ -548,6 +550,8 @@ export default function App() {
   const [hasExtra,    setHasExtra]    = useState(false)
   const [defFormation,setDefFormation]= useState('5-3')
   const [offFormation,setOffFormation]= useState('splitback')
+  const [myOffFormation,setMyOffFormation]= useState('base')
+  const [myDefFormation,setMyDefFormation]= useState('base')
 
   // Lineman Studio
   const [lsPlayers,   setLsPlayers]   = useState(()=>makeLSPlayers())
@@ -647,13 +651,36 @@ export default function App() {
   },[onWheelZoom])
 
   // ── Mode switch ──────────────────────────────────────────────────────────
+  const buildOffensePlayers=(fKey)=>{
+    if(fKey==='base'||!OFF_FORMATIONS[fKey]) return makeOffense()
+    const bx=FIELD_W/2, by=LOS_Y
+    return OFF_FORMATIONS[fKey].players.map(p=>({...p,cx:bx+p.ox,cy:by+p.oy}))
+  }
+  const buildDefensePlayers=(fKey)=>{
+    if(fKey==='base'||!DEF_FORMATIONS[fKey]) return makeDefense()
+    const bx=FIELD_W/2, by=LOS_Y
+    return DEF_FORMATIONS[fKey].players.map(p=>({...p,cx:bx+p.ox,cy:by+p.oy}))
+  }
+
   const switchMode=(m)=>{
     setMode(m)
-    setPlayers(m==='offense'?makeOffense():makeDefense())
+    setPlayers(m==='offense'?buildOffensePlayers(myOffFormation):buildDefensePlayers(myDefFormation))
     setRoutes({}); setRouteHistory([])
     setDrawingFor(null); setCurrentPts([])
     setAnimating(false); setAnimSnap(null)
     setSelected(null); setTool('move'); setHasExtra(false)
+  }
+
+  const applyMyFormation=(fKey)=>{
+    if(mode==='offense'){
+      setMyOffFormation(fKey)
+      setPlayers(buildOffensePlayers(fKey))
+    } else {
+      setMyDefFormation(fKey)
+      setPlayers(buildDefensePlayers(fKey))
+    }
+    setRoutes({}); setRouteHistory([])
+    setHasExtra(false); setSelected(null)
   }
 
   // ── Add position from bench ──────────────────────────────────────────────
@@ -959,6 +986,22 @@ export default function App() {
               ))}
             </div>
 
+            {SL(mode==='offense'?'OFFENSE FORMATION':'DEFENSE FORMATION')}
+            <select
+              value={mode==='offense'?myOffFormation:myDefFormation}
+              onChange={e=>applyMyFormation(e.target.value)}
+              style={{padding:'5px 6px',borderRadius:4,
+                border:`1px solid ${mode==='offense'?'#4ADE80':'#F87171'}`,
+                background:'rgba(0,0,0,0.5)',
+                color:mode==='offense'?'#4ADE80':'#ff8888',
+                fontFamily:'monospace',fontSize:9,cursor:'pointer',width:'100%',
+                boxShadow:mode==='offense'?'0 0 6px rgba(74,222,128,0.2)':'0 0 6px rgba(204,0,0,0.2)'}}>
+              {mode==='offense'
+                ? Object.entries(OFF_FORMATIONS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)
+                : Object.entries(DEF_FORMATIONS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)
+              }
+            </select>
+
             {SL('TOOL')}
             <div style={{display:'flex',gap:3}}>
               {[['move','✋'],['route','✏️'],['block','🔲']].map(([t,ic])=>(
@@ -1026,7 +1069,7 @@ export default function App() {
                 <button onClick={()=>{setRoutes({});setRouteHistory([])}} style={{flex:1,padding:'4px 0',borderRadius:4,border:'1px solid #2d5a30',background:'transparent',color:'#a7f3a7',fontFamily:'monospace',fontSize:10,cursor:'pointer'}}>Clear</button>
               </div>
               {selected&&<button onClick={removeSelected} style={{padding:'4px 0',borderRadius:4,border:'1px solid #b91c1c',background:'rgba(185,28,28,0.08)',color:'#F87171',fontFamily:'monospace',fontSize:10,cursor:'pointer'}}>✕ Delete Selected</button>}
-              <button onClick={()=>{switchMode(mode)}} style={{padding:'4px 0',borderRadius:4,border:'1px solid #2d5a30',background:'transparent',color:'#a7f3a7',fontFamily:'monospace',fontSize:10,cursor:'pointer'}}>Reset Field</button>
+              <button onClick={()=>applyMyFormation(mode==='offense'?myOffFormation:myDefFormation)} style={{padding:'4px 0',borderRadius:4,border:'1px solid #2d5a30',background:'transparent',color:'#a7f3a7',fontFamily:'monospace',fontSize:10,cursor:'pointer'}}>Reset Field</button>
               <input value={playName} onChange={e=>setPlayName(e.target.value)} placeholder="Play name…" style={{padding:'4px 6px',background:'#0d2b10',border:'1px solid #2d5a30',borderRadius:4,color:'#e8f5e9',fontFamily:'monospace',fontSize:10,width:'100%',boxSizing:'border-box'}}/>
               <button onClick={()=>doSave('designer')} disabled={syncStatus==='saving'} style={{padding:'5px 0',borderRadius:4,border:'1px solid #cc3333',background:'linear-gradient(135deg,rgba(139,0,0,0.4),rgba(204,0,0,0.3))',color:'#ff9999',fontFamily:'monospace',fontSize:10,cursor:'pointer',opacity:syncStatus==='saving'?0.5:1}}>{syncStatus==='saving'?'⟳ Saving…':'💾 Save Play'}</button>
             </div>
