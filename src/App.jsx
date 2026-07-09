@@ -552,6 +552,13 @@ export default function App() {
   const [offFormation,setOffFormation]= useState('splitback')
   const [myOffFormation,setMyOffFormation]= useState('base')
   const [myDefFormation,setMyDefFormation]= useState('base')
+  // Coverage zones
+  const [zones,       setZones]       = useState([])
+  const [selectedZone,setSelectedZone]= useState(null)
+  const [draggingZone,setDraggingZone]= useState(null) // {id, ox, oy}
+  const [resizingZone,setResizingZone]= useState(null) // {id, handle, startX, startY, startRx, startRy}
+  const [zoneType,    setZoneType]    = useState('zone2') // zone2|zone3|zone4|man|press
+  let _zoneId = useRef(1)
 
   // Lineman Studio
   const [lsPlayers,   setLsPlayers]   = useState(()=>makeLSPlayers())
@@ -669,6 +676,7 @@ export default function App() {
     setDrawingFor(null); setCurrentPts([])
     setAnimating(false); setAnimSnap(null)
     setSelected(null); setTool('move'); setHasExtra(false)
+    setZones([]); setSelectedZone(null)
   }
 
   const applyMyFormation=(fKey)=>{
@@ -682,6 +690,33 @@ export default function App() {
     setRoutes({}); setRouteHistory([])
     setHasExtra(false); setSelected(null)
   }
+
+  // ── Coverage Zone Definitions ─────────────────────────────────────────────
+  const ZONE_TYPES = {
+    zone2:  { label:'Cover 2 Zone',   fill:'rgba(30,100,255,0.18)', stroke:'#4488ff', dash:'none',  rx:90, ry:55 },
+    zone3:  { label:'Cover 3 Zone',   fill:'rgba(20,160,255,0.15)', stroke:'#22aaff', dash:'none',  rx:75, ry:50 },
+    zone4:  { label:'Cover 4 Zone',   fill:'rgba(80,60,255,0.15)',  stroke:'#8866ff', dash:'none',  rx:65, ry:45 },
+    hook:   { label:'Hook/Curl Zone', fill:'rgba(0,200,200,0.15)',  stroke:'#00cccc', dash:'4,3',   rx:50, ry:38 },
+    flat:   { label:'Flat Zone',      fill:'rgba(0,180,100,0.15)',  stroke:'#00bb66', dash:'none',  rx:65, ry:32 },
+    man:    { label:'Man Coverage',   fill:'rgba(220,30,30,0.14)',  stroke:'#ff4444', dash:'6,4',   rx:28, ry:28 },
+    press:  { label:'Press Man',      fill:'rgba(255,60,0,0.12)',   stroke:'#ff6600', dash:'3,3',   rx:18, ry:18 },
+    bracket:{ label:'Bracket/2-Man',  fill:'rgba(200,0,200,0.12)', stroke:'#cc44cc', dash:'5,3',   rx:36, ry:36 },
+  }
+
+  const addZone=()=>{
+    const def=ZONE_TYPES[zoneType]
+    const id=`zone_${_zoneId.current++}`
+    setZones(prev=>[...prev,{
+      id, type:zoneType,
+      cx: FIELD_W/2 + (Math.random()-0.5)*80,
+      cy: LOS_Y - 100 - Math.random()*60,
+      rx: def.rx, ry: def.ry,
+    }])
+    setSelectedZone(id)
+  }
+
+  const removeZone=(id)=>{ setZones(prev=>prev.filter(z=>z.id!==id)); if(selectedZone===id)setSelectedZone(null) }
+  const clearZones=()=>{ setZones([]); setSelectedZone(null) }
 
   // ── Add position from bench ──────────────────────────────────────────────
   const addFromBench=(p)=>{
@@ -1061,6 +1096,56 @@ export default function App() {
             {SL('OPTIONS')}
             <button onClick={()=>setShowGaps(!showGaps)} style={{padding:'3px 6px',borderRadius:4,border:`1px solid ${showGaps?'#FFE033':'#3a1a1a'}`,background:showGaps?'rgba(255,224,51,0.1)':'rgba(0,0,0,0.2)',color:showGaps?'#FFE033':'#ccc',fontFamily:'monospace',fontSize:10,cursor:'pointer'}}>{showGaps?'✓ ':''}Gap Labels</button>
 
+            {/* Coverage Zones — defense only */}
+            {mode==='defense'&&<>
+              {SL('COVERAGE ZONES')}
+              <select value={zoneType} onChange={e=>setZoneType(e.target.value)}
+                style={{padding:'4px 5px',borderRadius:4,border:'1px solid #3a4a6a',
+                  background:'rgba(0,0,0,0.4)',color:'#88aaff',
+                  fontFamily:'monospace',fontSize:9,cursor:'pointer',width:'100%'}}>
+                {Object.entries(ZONE_TYPES).map(([k,v])=>(
+                  <option key={k} value={k}>{v.label}</option>
+                ))}
+              </select>
+              <button onClick={addZone} style={{padding:'5px 6px',borderRadius:4,
+                background:'linear-gradient(135deg,rgba(0,40,120,0.6),rgba(0,80,200,0.4))',
+                border:'1px solid #4488ff',color:'#88aaff',
+                fontFamily:'monospace',fontSize:10,fontWeight:'bold',cursor:'pointer'}}>
+                + Drop Zone
+              </button>
+              {selectedZone&&(()=>{
+                const z=zones.find(z=>z.id===selectedZone)
+                if(!z)return null
+                const def=ZONE_TYPES[z.type]
+                return (
+                  <div style={{display:'flex',flexDirection:'column',gap:3,padding:'5px',
+                    background:'rgba(0,40,120,0.15)',borderRadius:4,border:'1px solid #2a3a5a'}}>
+                    <div style={{fontSize:9,color:'#88aaff',fontFamily:'monospace'}}>{def.label}</div>
+                    <div style={{display:'flex',gap:3,alignItems:'center'}}>
+                      <span style={{fontSize:8,color:'#666',fontFamily:'monospace',width:20}}>W</span>
+                      <input type="range" min={20} max={220} value={z.rx}
+                        onChange={e=>setZones(prev=>prev.map(zz=>zz.id===selectedZone?{...zz,rx:+e.target.value}:zz))}
+                        style={{flex:1,accentColor:'#4488ff',height:14}}/>
+                      <span style={{fontSize:8,color:'#88aaff',fontFamily:'monospace',width:22}}>{z.rx}</span>
+                    </div>
+                    <div style={{display:'flex',gap:3,alignItems:'center'}}>
+                      <span style={{fontSize:8,color:'#666',fontFamily:'monospace',width:20}}>H</span>
+                      <input type="range" min={15} max={180} value={z.ry}
+                        onChange={e=>setZones(prev=>prev.map(zz=>zz.id===selectedZone?{...zz,ry:+e.target.value}:zz))}
+                        style={{flex:1,accentColor:'#4488ff',height:14}}/>
+                      <span style={{fontSize:8,color:'#88aaff',fontFamily:'monospace',width:22}}>{z.ry}</span>
+                    </div>
+                    <button onClick={()=>removeZone(selectedZone)} style={{padding:'3px 0',borderRadius:3,
+                      border:'1px solid #cc3333',background:'rgba(180,0,0,0.15)',
+                      color:'#ff6666',fontFamily:'monospace',fontSize:9,cursor:'pointer'}}>✕ Remove Zone</button>
+                  </div>
+                )
+              })()}
+              {zones.length>0&&<button onClick={clearZones} style={{padding:'3px 6px',borderRadius:3,
+                border:'1px solid #3a1a1a',background:'transparent',color:'#888',
+                fontFamily:'monospace',fontSize:9,cursor:'pointer'}}>Clear All Zones ({zones.length})</button>}
+            </>}
+
             {/* Actions */}
             <div style={{marginTop:'auto',display:'flex',flexDirection:'column',gap:3,paddingTop:8,borderTop:'1px solid #4a0a0a'}}>
               <button onClick={startAnim} style={{padding:'6px 0',borderRadius:4,border:'none',background:animating?'#b91c1c':'#FFE033',color:'#060e07',fontFamily:'monospace',fontWeight:'bold',fontSize:12,cursor:'pointer'}}>{animating?'■ Stop':'▶ Play'}</button>
@@ -1089,27 +1174,36 @@ export default function App() {
                 cursor:panning?'grabbing':tool==='move'?(zoom>1?'grab':'default'):'crosshair',
                 userSelect:'none',touchAction:'none'}}
               onPointerMove={(e)=>{
-                // Always update waypoint preview
                 if(waypointActive) setPreviewPt(getSVGPt(svgRef,e))
-                // Pan
+                if(draggingZone){
+                  const pt=getSVGPt(svgRef,e)
+                  setZones(prev=>prev.map(z=>z.id===draggingZone.id?{...z,cx:pt.x-draggingZone.ox,cy:pt.y-draggingZone.oy}:z))
+                  return
+                }
+                if(resizingZone){
+                  const pt=getSVGPt(svgRef,e)
+                  const dx=pt.x-resizingZone.startX,dy=pt.y-resizingZone.startY
+                  setZones(prev=>prev.map(z=>z.id===resizingZone.id?{
+                    ...z,
+                    rx:Math.max(15,resizingZone.startRx+(resizingZone.handle==='e'?dx:resizingZone.handle==='w'?-dx:0)),
+                    ry:Math.max(12,resizingZone.startRy+(resizingZone.handle==='s'?dy:resizingZone.handle==='n'?-dy:0)),
+                  }:z))
+                  return
+                }
                 if(panning&&panStart){
                   const svg=svgRef.current,rect=svg.getBoundingClientRect()
                   const scaleX=vbW/rect.width,scaleY=vbH/rect.height
                   setPanX(p=>p-(e.clientX-panStart.x)*scaleX)
                   setPanY(p=>p-(e.clientY-panStart.y)*scaleY)
                   setPanStart({x:e.clientX,y:e.clientY})
-                } else {
-                  mH.onMove(e)
-                }
+                } else { mH.onMove(e) }
               }}
               onPointerDown={(e)=>{
                 if(e.button!==0) return
                 const pt=getSVGPt(svgRef,e)
-                // Pan: move tool + zoomed
-                if(zoom>1&&tool==='move'){
+                if(zoom>1&&tool==='move'&&!draggingZone&&!resizingZone){
                   e.preventDefault(); setPanning(true); setPanStart({x:e.clientX,y:e.clientY}); return
                 }
-                // Waypoint: first click starts the route from exactly here
                 if(straightMode&&(tool==='route'||tool==='block')){
                   if(!waypointActive){
                     wpRef.current={active:true,pts:[pt],playerId:'__field__'}
@@ -1117,24 +1211,21 @@ export default function App() {
                   }
                   return
                 }
-                // Freehand: start drawing from exactly here
                 if(tool==='route'||tool==='block'){
                   setDrawingFor('__field__'); setCurrentPts([pt])
                 }
               }}
               onPointerUp={(e)=>{
+                if(draggingZone){setDraggingZone(null);return}
+                if(resizingZone){setResizingZone(null);return}
                 if(panning){ setPanning(false); setPanStart(null); return }
-                if(!waypointActive){
-                  const startPt=currentPts[0]
-                  mH.onUp(startPt)
-                }
+                if(!waypointActive){ mH.onUp(currentPts[0]) }
               }}
               onPointerLeave={(e)=>{
+                if(draggingZone){setDraggingZone(null);return}
+                if(resizingZone){setResizingZone(null);return}
                 if(panning){ setPanning(false); setPanStart(null); return }
-                if(!waypointActive&&!straightMode){
-                  const startPt=currentPts[0]
-                  mH.onUp(startPt)
-                }
+                if(!waypointActive&&!straightMode) mH.onUp(currentPts[0])
               }}
               onDoubleClick={(e)=>{ if(waypointActive){ e.preventDefault(); wpFinish() } }}
               onClick={(e)=>{
@@ -1148,6 +1239,50 @@ export default function App() {
                 if(!drawingFor) mH.onSvgClick(e)
               }}>
               <FootballField showGaps={showGaps}/>
+
+              {/* ── Coverage Zones (render under routes and players) ── */}
+              {zones.map(z=>{
+                const def=ZONE_TYPES[z.type]
+                const isSel=selectedZone===z.id
+                return (
+                  <g key={z.id}>
+                    {/* Main ellipse */}
+                    <ellipse cx={z.cx} cy={z.cy} rx={z.rx} ry={z.ry}
+                      fill={def.fill} stroke={def.stroke} strokeWidth={isSel?2.5:1.5}
+                      strokeDasharray={def.dash} opacity={isSel?1:0.85}
+                      style={{cursor:'move',filter:isSel?`drop-shadow(0 0 6px ${def.stroke})`:'none'}}
+                      onPointerDown={e=>{
+                        e.stopPropagation()
+                        const pt=getSVGPt(svgRef,e)
+                        setSelectedZone(z.id)
+                        setDraggingZone({id:z.id,ox:pt.x-z.cx,oy:pt.y-z.cy})
+                      }}/>
+                    {/* Label */}
+                    <text x={z.cx} y={z.cy+4} textAnchor="middle"
+                      fill={def.stroke} fontSize={10} fontFamily="monospace"
+                      fontWeight="bold" opacity={0.9}
+                      style={{pointerEvents:'none',userSelect:'none'}}>
+                      {def.label.split(' ')[0]}
+                    </text>
+                    {/* Resize handles when selected */}
+                    {isSel&&[
+                      {h:'e',hx:z.cx+z.rx,hy:z.cy},
+                      {h:'w',hx:z.cx-z.rx,hy:z.cy},
+                      {h:'s',hx:z.cx,hy:z.cy+z.ry},
+                      {h:'n',hx:z.cx,hy:z.cy-z.ry},
+                    ].map(({h,hx,hy})=>(
+                      <rect key={h} x={hx-5} y={hy-5} width={10} height={10} rx={2}
+                        fill={def.stroke} stroke="#fff" strokeWidth={1} opacity={0.9}
+                        style={{cursor:h==='e'||h==='w'?'ew-resize':'ns-resize'}}
+                        onPointerDown={e=>{
+                          e.stopPropagation()
+                          const pt=getSVGPt(svgRef,e)
+                          setResizingZone({id:z.id,handle:h,startX:pt.x,startY:pt.y,startRx:z.rx,startRy:z.ry})
+                        }}/>
+                    ))}
+                  </g>
+                )
+              })}
               {Object.entries(routes).map(([id,r])=><RouteLayer key={id} r={r} lineStyle={lineStyle} endCap={endCap}/>)}
               {/* Freehand preview */}
               {!straightMode&&drawingFor&&currentPts.length>1&&<RouteLayer r={{pts:currentPts,color:'#fff',lineStyle:tool==='block'?'solid':lineStyle,endCap:tool==='block'?blockCap(blockType):endCap}} lineStyle={lineStyle} endCap={endCap} highlight/>}
