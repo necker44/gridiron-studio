@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useSharedPlays } from './hooks/useSharedPlays'
+import bixbyRedPlaybook from './bixbyRedPlaybook.json'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 // Vertical field: wider than tall, lines run horizontally
@@ -901,6 +902,22 @@ export default function App() {
     else{setMode(play.mode);setPlayers(play.players);setRoutes(play.routes);setTab('designer')}
   }
 
+  // ── Import bundled playbook (converted from PDF playbooks) ────────────────
+  const [importStatus,setImportStatus]=useState('')
+  const importBixbyPlaybook=async()=>{
+    const existingNames=new Set(plays.map(p=>p.name))
+    const toImport=bixbyRedPlaybook.filter(p=>!existingNames.has(p.name))
+    if(toImport.length===0){setImportStatus('Already imported — no new plays.');setTimeout(()=>setImportStatus(''),2500);return}
+    setImportStatus(`Importing ${toImport.length} plays…`)
+    let base=Date.now()
+    for(const p of toImport){
+      base+=1
+      await addPlay({...p,id:base,savedAt:base})
+    }
+    setImportStatus(`Imported ${toImport.length} plays!`)
+    setTimeout(()=>setImportStatus(''),2500)
+  }
+
   // ── Quick schemes ────────────────────────────────────────────────────────
   const applyScheme=(scheme)=>{
     const offIds=['ls_LT','ls_LG','ls_C','ls_RG','ls_RT','ls_TE']
@@ -1422,7 +1439,11 @@ export default function App() {
         <div style={{flex:1,padding:'14px 16px',overflowY:'auto'}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12,flexWrap:'wrap',gap:8}}>
             <div style={{fontSize:13,color:'#ff8888',letterSpacing:1}}>📋 PLAYBOOK ({plays.length})</div>
-            <button onClick={()=>load()} style={{padding:'3px 9px',borderRadius:4,border:'1px solid #2d5a30',background:'transparent',color:'#a7f3a7',fontFamily:'monospace',fontSize:10,cursor:'pointer'}}>⟳ Refresh</button>
+            <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+              {importStatus&&<span style={{fontSize:9,color:'#4ade80',fontFamily:'monospace'}}>{importStatus}</span>}
+              <button onClick={importBixbyPlaybook} style={{padding:'3px 9px',borderRadius:4,border:'1px solid #FFE033',background:'rgba(255,224,51,0.07)',color:'#FFE033',fontFamily:'monospace',fontSize:10,cursor:'pointer'}}>⬇ Import Bixby Red Playbook</button>
+              <button onClick={()=>load()} style={{padding:'3px 9px',borderRadius:4,border:'1px solid #2d5a30',background:'transparent',color:'#a7f3a7',fontFamily:'monospace',fontSize:10,cursor:'pointer'}}>⟳ Refresh</button>
+            </div>
           </div>
           {plays.length===0&&<div style={{textAlign:'center',color:'rgba(255,255,255,0.18)',fontSize:13,padding:'60px 0',fontFamily:'monospace'}}>No plays saved yet.<br/>Design a play and hit 💾 Save Play.</div>}
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))',gap:10}}>
