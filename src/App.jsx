@@ -377,6 +377,15 @@ function timeAgo(ts){
 let _uid=1
 function uid(){return `p_${Date.now()}_${_uid++}`}
 
+const KNOWN_FORMATIONS=['SPLIT','I','BEAST','GUN','SCRAMBLE']
+function getFormation(play){
+  if(play.section==='lineman')return 'Blocking Schemes'
+  if(play.formation)return play.formation
+  const first=(play.name||'').trim().split(/\s+/)[0]?.toUpperCase()
+  if(first&&KNOWN_FORMATIONS.includes(first))return first
+  return 'Other'
+}
+
 // ─── Vertical Football Field ───────────────────────────────────────────────────
 function FootballField({showGaps=false}) {
   const yards=Array.from({length:25},(_,i)=>i*5) // every 5 yards
@@ -456,9 +465,29 @@ function PlayerIcon({p,selected,hasRoute,drawingActive,onPointerDown,cx:animCx,c
 // ─── Route Layer ───────────────────────────────────────────────────────────────
 function RouteLayer({r,lineStyle,endCap,highlight}) {
   if (!r||!r.pts||r.pts.length<2) return null
+  const last=r.pts[r.pts.length-1]
+
+  // Motion segment: pre-snap motion always renders as a red zigzag. If the
+  // motion has been continued into a route, render that portion normally.
+  const mIdx = r.motionEndIndex
+  if (mIdx!=null && mIdx>0) {
+    const motionPts = r.pts.slice(0, mIdx+1)
+    const routePts = r.pts.slice(mIdx)
+    const motionColor = highlight?'#fff':'#F87171'
+    const motionPath = zigzag(motionPts)
+    return (
+      <g>
+        <path d={motionPath} fill="none" stroke={motionColor} strokeWidth={highlight?3:2}
+          opacity={0.9} strokeLinecap="round" strokeLinejoin="round"/>
+        {routePts.length>1
+          ? <RouteLayer r={{...r,pts:routePts,motionEndIndex:null}} lineStyle={lineStyle} endCap={endCap} highlight={highlight}/>
+          : <circle cx={last.x} cy={last.y} r={3.5} fill={motionColor}/>}
+      </g>
+    )
+  }
+
   const color=highlight?'#fff':(r.color||'#FFE033')
   const cap=r.endCap||endCap||'arrow'
-  const last=r.pts[r.pts.length-1]
   const ah=arrowHead(r.pts)
   const tc=tCap(r.pts)
 
@@ -545,6 +574,8 @@ export default function App() {
   const [animT,       setAnimT]       = useState(0)
   const [animSnap,    setAnimSnap]    = useState(null)
   const [playName,    setPlayName]    = useState('')
+  const [saveFormation, setSaveFormation] = useState('')
+  const [pbFormation, setPbFormation] = useState(null) // null = folder view; else = selected formation
   const [authorName,  setAuthorName]  = useState(()=>localStorage.getItem('gs_author')||'')
   const [showGaps,    setShowGaps]    = useState(false)
   const [showInfo,    setShowInfo]    = useState(false)
@@ -805,17 +836,36 @@ export default function App() {
       if(dFor&&cPts.length>1){
         setRHist(h=>[...h.slice(-19),{routes:{...rMap}}])
         const isBlock=curTool==='block'
-        const targetId = dFor==='__field__'
-          ? closestPlayer(startPt||cPts[0], pList)?.id
-          : dFor
+        const isMotion=curTool==='motion'
+        // If the currently selected player has a motion path that hasn't been
+        // continued into a route yet, drawing with the Route tool continues it.
+        const selRoute = (sel && rMap[sel]) || null
+        const canContinue = curTool==='route' && selRoute && selRoute.motionEndIndex!=null
+          && selRoute.motionEndIndex===selRoute.pts.length-1
+        const targetId = canContinue
+          ? sel
+          : (dFor==='__field__' ? closestPlayer(startPt||cPts[0], pList)?.id : dFor)
         if(targetId){
-          setRMap(prev=>({...prev,[targetId]:{
-            pts:cPts,
-            color:isBlock?blockColor(curBT):'#FFE033',
-            lineStyle:isBlock?'solid':lineStyle,
-            endCap:isBlock?blockCap(curBT):endCap,
-            blockType:isBlock?curBT:null,
-          }}))
+          if(canContinue){
+            setRMap(prev=>({...prev,[targetId]:{
+              ...selRoute,
+              pts:[...selRoute.pts,...cPts],
+              color:'#FFE033',
+              lineStyle,
+              endCap,
+              blockType:null,
+            }}))
+          } else {
+            setRMap(prev=>({...prev,[targetId]:{
+              pts:cPts,
+              color:isMotion?'#F87171':(isBlock?blockColor(curBT):'#FFE033'),
+              lineStyle:isMotion?'zigzag':(isBlock?'solid':lineStyle),
+              endCap:isBlock?blockCap(curBT):endCap,
+              blockType:isBlock?curBT:null,
+              motionEndIndex:isMotion?cPts.length-1:null,
+            }}))
+          }
+          setSel(targetId)
         }
         setDFor(null); setCPts([])
       } else if(dFor){setDFor(null);setCPts([])}
@@ -876,12 +926,33 @@ export default function App() {
     animRef.current=requestAnimationFrame(step)
   }
   useEffect(()=>()=>cancelAnimationFrame(animRef.current),[])
+  // Fraction of the animation reserved for pre-snap motion. Anyone in motion
+  // finishes moving during [0, T_SNAP]; every route (including the rest of a
+  // motion player's path) plays during [T_SNAP, 1], i.e. after the snap.
+  const T_SNAP = 0.28
   const getAnimPos=(p)=>{
     const r=routes[p.id];if(!r||!animSnap)return null
     const base=animSnap.find(a=>a.id===p.id);if(!base)return null
-    const tot=r.pts.length-1;if(tot<=0)return{cx:base.cx,cy:base.cy}
-    const pos=animT*tot,idx=Math.min(Math.floor(pos),tot-1),frac=pos-idx
-    return{cx:lerp(r.pts[idx].x,r.pts[Math.min(idx+1,tot)].x,frac),cy:lerp(r.pts[idx].y,r.pts[Math.min(idx+1,tot)].y,frac)}
+    const pts=r.pts
+    const mIdx=r.motionEndIndex
+    if(mIdx!=null && mIdx>0){
+      if(animT<=T_SNAP){
+        const localT=animT/T_SNAP, tot=mIdx
+        const pos=localT*tot,idx=Math.min(Math.floor(pos),tot-1),frac=pos-idx
+        return{cx:lerp(pts[idx].x,pts[Math.min(idx+1,tot)].x,frac),cy:lerp(pts[idx].y,pts[Math.min(idx+1,tot)].y,frac)}
+      }
+      const tot=pts.length-1-mIdx
+      if(tot<=0)return{cx:pts[mIdx].x,cy:pts[mIdx].y}
+      const localT=(animT-T_SNAP)/(1-T_SNAP)
+      const pos=localT*tot,idx=Math.min(Math.floor(pos),tot-1),frac=pos-idx
+      return{cx:lerp(pts[mIdx+idx].x,pts[mIdx+Math.min(idx+1,tot)].x,frac),cy:lerp(pts[mIdx+idx].y,pts[mIdx+Math.min(idx+1,tot)].y,frac)}
+    }
+    if(animT<=T_SNAP)return{cx:pts[0].x,cy:pts[0].y}
+    const tot=pts.length-1
+    if(tot<=0)return{cx:pts[0].x,cy:pts[0].y}
+    const localT=(animT-T_SNAP)/(1-T_SNAP)
+    const pos=localT*tot,idx=Math.min(Math.floor(pos),tot-1),frac=pos-idx
+    return{cx:lerp(pts[idx].x,pts[Math.min(idx+1,tot)].x,frac),cy:lerp(pts[idx].y,pts[Math.min(idx+1,tot)].y,frac)}
   }
 
   // ── Save / Load ──────────────────────────────────────────────────────────
@@ -891,6 +962,7 @@ export default function App() {
       id:Date.now(),name:playName.trim(),
       mode:section==='lineman'?'lineman':mode,section,
       author:authorName||'Coach',savedAt:Date.now(),
+      formation:section==='lineman'?undefined:(saveFormation.trim()||undefined),
       players:section==='lineman'?lsPlayers.map(p=>({...p})):players.map(p=>({...p})),
       routes:section==='lineman'?{...lsRoutes}:{...routes},
     }
@@ -1056,10 +1128,15 @@ export default function App() {
 
             {SL('TOOL')}
             <div style={{display:'flex',gap:3}}>
-              {[['move','✋'],['route','✏️'],['block','🔲']].map(([t,ic])=>(
+              {[['move','✋'],['motion','🏃'],['route','✏️'],['block','🔲']].map(([t,ic])=>(
                 <button key={t} onClick={()=>setTool(t)} title={t} style={{flex:1,padding:'5px 0',borderRadius:4,border:'1px solid',borderColor:tool===t?'#FFE033':'#3a1a1a',background:tool===t?'rgba(255,224,51,0.15)':'rgba(0,0,0,0.2)',color:tool===t?'#FFE033':'#ccc',fontFamily:'monospace',fontSize:14,cursor:'pointer'}}>{ic}</button>
               ))}
             </div>
+
+            {tool==='motion'&&<div style={{fontSize:9,color:'#F87171',opacity:0.85,lineHeight:1.5,padding:'2px 0'}}>
+              🏃 Draw a pre-snap motion path (renders as a red zigzag). When done, the player stays selected —
+              switch to ✏️ Route and draw again to continue his path into a route from where the motion ends.
+            </div>}
 
             {(tool==='route'||tool==='block')&&<>
               {tool==='route'&&<>
@@ -1172,6 +1249,7 @@ export default function App() {
               </div>
               {selected&&<button onClick={removeSelected} style={{padding:'4px 0',borderRadius:4,border:'1px solid #b91c1c',background:'rgba(185,28,28,0.08)',color:'#F87171',fontFamily:'monospace',fontSize:10,cursor:'pointer'}}>✕ Delete Selected</button>}
               <button onClick={()=>applyMyFormation(mode==='offense'?myOffFormation:myDefFormation)} style={{padding:'4px 0',borderRadius:4,border:'1px solid #2d5a30',background:'transparent',color:'#a7f3a7',fontFamily:'monospace',fontSize:10,cursor:'pointer'}}>Reset Field</button>
+              <input value={saveFormation} onChange={e=>setSaveFormation(e.target.value)} placeholder="Formation (e.g. Split, Gun)…" style={{padding:'4px 6px',background:'#0d2b10',border:'1px solid #2d5a30',borderRadius:4,color:'#e8f5e9',fontFamily:'monospace',fontSize:10,width:'100%',boxSizing:'border-box'}}/>
               <input value={playName} onChange={e=>setPlayName(e.target.value)} placeholder="Play name…" style={{padding:'4px 6px',background:'#0d2b10',border:'1px solid #2d5a30',borderRadius:4,color:'#e8f5e9',fontFamily:'monospace',fontSize:10,width:'100%',boxSizing:'border-box'}}/>
               <button onClick={()=>doSave('designer')} disabled={syncStatus==='saving'} style={{padding:'5px 0',borderRadius:4,border:'1px solid #cc3333',background:'linear-gradient(135deg,rgba(139,0,0,0.4),rgba(204,0,0,0.3))',color:'#ff9999',fontFamily:'monospace',fontSize:10,cursor:'pointer',opacity:syncStatus==='saving'?0.5:1}}>{syncStatus==='saving'?'⟳ Saving…':'💾 Save Play'}</button>
             </div>
@@ -1221,14 +1299,14 @@ export default function App() {
                 if(zoom>1&&tool==='move'&&!draggingZone&&!resizingZone){
                   e.preventDefault(); setPanning(true); setPanStart({x:e.clientX,y:e.clientY}); return
                 }
-                if(straightMode&&(tool==='route'||tool==='block')){
+                if(straightMode&&(tool==='route'||tool==='block'||tool==='motion')){
                   if(!waypointActive){
                     wpRef.current={active:true,pts:[pt],playerId:'__field__'}
                     setWaypointActive(true); setWaypointPts([pt]); setPreviewPt(pt)
                   }
                   return
                 }
-                if(tool==='route'||tool==='block'){
+                if(tool==='route'||tool==='block'||tool==='motion'){
                   setDrawingFor('__field__'); setCurrentPts([pt])
                 }
               }}
@@ -1302,7 +1380,7 @@ export default function App() {
               })}
               {Object.entries(routes).map(([id,r])=><RouteLayer key={id} r={r} lineStyle={lineStyle} endCap={endCap}/>)}
               {/* Freehand preview */}
-              {!straightMode&&drawingFor&&currentPts.length>1&&<RouteLayer r={{pts:currentPts,color:'#fff',lineStyle:tool==='block'?'solid':lineStyle,endCap:tool==='block'?blockCap(blockType):endCap}} lineStyle={lineStyle} endCap={endCap} highlight/>}
+              {!straightMode&&drawingFor&&currentPts.length>1&&<RouteLayer r={{pts:currentPts,color:tool==='motion'?'#F87171':'#fff',lineStyle:tool==='block'?'solid':tool==='motion'?'zigzag':lineStyle,endCap:tool==='block'?blockCap(blockType):endCap}} lineStyle={lineStyle} endCap={endCap} highlight/>}
               {/* Waypoint segments + preview */}
               {waypointActive&&waypointPts.length>0&&(
                 <g>
@@ -1435,42 +1513,75 @@ export default function App() {
       )}
 
       {/* ══ PLAYBOOK ══════════════════════════════════════════════════════════ */}
-      {tab==='plays'&&(
+      {tab==='plays'&&(()=>{
+        const groups={}
+        plays.forEach(p=>{const f=getFormation(p);(groups[f]=groups[f]||[]).push(p)})
+        const formationNames=Object.keys(groups).sort((a,b)=>{
+          const ia=KNOWN_FORMATIONS.indexOf(a), ib=KNOWN_FORMATIONS.indexOf(b)
+          if(ia!==-1&&ib!==-1)return ia-ib
+          if(ia!==-1)return -1
+          if(ib!==-1)return 1
+          if(a==='Blocking Schemes')return 1
+          if(b==='Blocking Schemes')return -1
+          if(a==='Other')return 1
+          if(b==='Other')return -1
+          return a.localeCompare(b)
+        })
+        return (
         <div style={{flex:1,padding:'14px 16px',overflowY:'auto'}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12,flexWrap:'wrap',gap:8}}>
-            <div style={{fontSize:13,color:'#ff8888',letterSpacing:1}}>📋 PLAYBOOK ({plays.length})</div>
+            <div style={{fontSize:13,color:'#ff8888',letterSpacing:1,display:'flex',alignItems:'center',gap:8}}>
+              {pbFormation&&<button onClick={()=>setPbFormation(null)} style={{padding:'2px 8px',borderRadius:4,border:'1px solid #2d5a30',background:'transparent',color:'#a7f3a7',fontFamily:'monospace',fontSize:11,cursor:'pointer'}}>← Folders</button>}
+              <span>📋 {pbFormation?pbFormation.toUpperCase():'PLAYBOOK'} {pbFormation?`(${(groups[pbFormation]||[]).length})`:`(${plays.length})`}</span>
+            </div>
             <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
               {importStatus&&<span style={{fontSize:9,color:'#4ade80',fontFamily:'monospace'}}>{importStatus}</span>}
               <button onClick={importBixbyPlaybook} style={{padding:'3px 9px',borderRadius:4,border:'1px solid #FFE033',background:'rgba(255,224,51,0.07)',color:'#FFE033',fontFamily:'monospace',fontSize:10,cursor:'pointer'}}>⬇ Import Bixby Red Playbook</button>
               <button onClick={()=>load()} style={{padding:'3px 9px',borderRadius:4,border:'1px solid #2d5a30',background:'transparent',color:'#a7f3a7',fontFamily:'monospace',fontSize:10,cursor:'pointer'}}>⟳ Refresh</button>
             </div>
           </div>
+
           {plays.length===0&&<div style={{textAlign:'center',color:'rgba(255,255,255,0.18)',fontSize:13,padding:'60px 0',fontFamily:'monospace'}}>No plays saved yet.<br/>Design a play and hit 💾 Save Play.</div>}
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))',gap:10}}>
-            {[...plays].sort((a,b)=>(b.savedAt||0)-(a.savedAt||0)).map(play=>(
-              <div key={play.id} style={{background:'#080f09',border:'1px solid #1d4a20',borderRadius:8,padding:10,display:'flex',flexDirection:'column',gap:6}}>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-                  <span style={{fontWeight:'bold',color:'#FFE033',fontSize:12}}>{play.name}</span>
-                  <span style={{fontSize:8,padding:'2px 6px',borderRadius:10,background:play.mode==='offense'?'rgba(74,222,128,0.12)':play.mode==='lineman'?'rgba(255,224,51,0.12)':'rgba(248,113,113,0.12)',color:play.mode==='offense'?'#4ade80':play.mode==='lineman'?'#FFE033':'#F87171',letterSpacing:0.5}}>{play.mode?.toUpperCase()}</span>
+
+          {/* ── Folder view ── */}
+          {plays.length>0&&!pbFormation&&(
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:10}}>
+              {formationNames.map(fname=>(
+                <button key={fname} onClick={()=>setPbFormation(fname)} style={{textAlign:'left',padding:'16px 14px',borderRadius:8,border:'1px solid #1d4a20',background:'#080f09',color:'#e8f5e9',fontFamily:'monospace',cursor:'pointer',display:'flex',flexDirection:'column',gap:6}}>
+                  <span style={{fontSize:22}}>📁</span>
+                  <span style={{fontSize:12,fontWeight:'bold',color:'#FFE033'}}>{fname}</span>
+                  <span style={{fontSize:9,color:'#4b5563'}}>{groups[fname].length} play{groups[fname].length===1?'':'s'}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* ── Play list within a formation ── */}
+          {pbFormation&&(
+            <div style={{display:'flex',flexDirection:'column',gap:6}}>
+              {[...(groups[pbFormation]||[])].sort((a,b)=>(b.savedAt||0)-(a.savedAt||0)).map(play=>(
+                <div key={play.id} onClick={()=>loadPlay(play)} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',borderRadius:6,border:'1px solid #1d4a20',background:'#080f09',cursor:'pointer'}}>
+                  <svg viewBox={`0 0 ${FIELD_W} ${FIELD_H}`} style={{width:34,height:54,borderRadius:3,background:'#0d2b10',flexShrink:0}}>
+                    <FootballField showGaps={false}/>
+                    {Object.entries(play.routes||{}).map(([id,r])=><RouteLayer key={id} r={r} lineStyle="solid" endCap="T"/>)}
+                    {(play.players||[]).map(p=><PlayerIcon key={p.id} p={p} selected={false} hasRoute={!!(play.routes||{})[p.id]} drawingActive={false} onPointerDown={()=>{}}/>)}
+                  </svg>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontWeight:'bold',color:'#FFE033',fontSize:12,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{play.name}</div>
+                    <div style={{fontSize:9,color:'#4b5563',display:'flex',gap:8,marginTop:2}}>
+                      <span style={{padding:'1px 5px',borderRadius:8,background:play.mode==='offense'?'rgba(74,222,128,0.12)':play.mode==='lineman'?'rgba(255,224,51,0.12)':'rgba(248,113,113,0.12)',color:play.mode==='offense'?'#4ade80':play.mode==='lineman'?'#FFE033':'#F87171'}}>{play.mode?.toUpperCase()}</span>
+                      {play.author&&<span>👤 {play.author}</span>}
+                      {play.savedAt&&<span>🕐 {timeAgo(play.savedAt)}</span>}
+                    </div>
+                  </div>
+                  <button onClick={(e)=>{e.stopPropagation();deletePlay(play.id)}} style={{padding:'4px 9px',borderRadius:4,border:'1px solid #2d5a30',background:'transparent',color:'#F87171',fontFamily:'monospace',fontSize:10,cursor:'pointer',flexShrink:0}}>✕</button>
                 </div>
-                <div style={{fontSize:9,color:'#4b5563',display:'flex',gap:8}}>
-                  {play.author&&<span>👤 {play.author}</span>}
-                  {play.savedAt&&<span>🕐 {timeAgo(play.savedAt)}</span>}
-                </div>
-                <svg viewBox={`0 0 ${FIELD_W} ${FIELD_H}`} style={{width:'100%',borderRadius:4,background:'#0d2b10'}}>
-                  <FootballField showGaps={false}/>
-                  {Object.entries(play.routes||{}).map(([id,r])=><RouteLayer key={id} r={r} lineStyle="solid" endCap="T"/>)}
-                  {(play.players||[]).map(p=><PlayerIcon key={p.id} p={p} selected={false} hasRoute={!!(play.routes||{})[p.id]} drawingActive={false} onPointerDown={()=>{}}/>)}
-                </svg>
-                <div style={{display:'flex',gap:4}}>
-                  <button onClick={()=>loadPlay(play)} style={{flex:1,padding:'4px 0',borderRadius:4,border:'1px solid #4ade80',background:'rgba(74,222,128,0.07)',color:'#4ade80',fontFamily:'monospace',fontSize:10,cursor:'pointer'}}>Load</button>
-                  <button onClick={()=>deletePlay(play.id)} style={{padding:'4px 9px',borderRadius:4,border:'1px solid #2d5a30',background:'transparent',color:'#F87171',fontFamily:'monospace',fontSize:10,cursor:'pointer'}}>✕</button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+        )
+      })()}
     </div>
   )
 }
